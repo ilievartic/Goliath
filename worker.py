@@ -11,6 +11,10 @@ class Worker:
         self.functions = {}
         self.modules = {}
 
+    def serveBadRequest(self, request):
+        """Generates a response for a malformed request."""
+        return [request[0], "!"]
+
     def serveSetupRequest(self, request):
         task_def = None
         client_id = None
@@ -20,13 +24,9 @@ class Worker:
                 task_def = unpack(val)
             elif (name == CLIENTID_PARAM):
                 client_id = unpack(val)
-            else:
-                # TODO: Handle bad request
-                pass
 
         if task_def is None or client_id is None:
-            # TODO: Handle bad request
-            pass
+            return [SETUP_TOKEN, ERROR_STOP]
 
         source_file = task_def[0]
         function_name = task_def[2]
@@ -47,13 +47,9 @@ class Worker:
                 task = unpack(val)
             elif (name == CLIENTID_PARAM):
                 client_id = unpack(val)
-            else:
-                # TODO: handle bad request
-                pass
 
         if task is None or client_id is None:
-            # TODO: Handle bad request
-            pass
+            return [WORK_TOKEN, ERROR_STOP]
         
         tid, args = task
         result = self.functions[client_id](**args)
@@ -76,11 +72,9 @@ class Worker:
                 elif (request[0] == WORK_TOKEN):
                     response = self.serveWorkRequest(request)
                 else:
-                    # TODO: Handle bad requests
-                    pass
+                    response = self.serveBadRequest(request)
             else:
-                # TODO: Handle bad requests
-                pass
+                response = self.serveBadRequest(request)
             response_string = buildMessage(response)
             print(response_string)
             self.writer.write(response_string.encode('utf-8'))
