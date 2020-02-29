@@ -60,7 +60,7 @@ class Commander:
     def setHostsAndPorts(self, listHost, listPort):
          return self.loop.run_until_complete(self.__setHostsAndPorts(listHost, listPort))
 
-    def __openAllConnections(self):
+    async def __openAllConnections(self):
         """
         Open connections to all the user specified servers
         """
