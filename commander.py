@@ -1,20 +1,5 @@
 import asyncio
 import time
-class Task:
-    def __init__(self, sourceFile, listDependentFiles, functionName, listArgs):
-        """
-        Parameters
-        ----------
-        sourceFile: file that worker process must run
-        listDependentFiles: files that source may use
-        functionName: function that worker process will ultimately use
-        listArgs: any arguments to be sent to each instance of the function
-        """
-        self.sourceFile = sourceFile;
-        self.listDependentFiles = listDependentFiles;
-        self.functionName = functionName;
-        self.listArgs = listArgs;
-        
 class Commander:
     def __init__(self):
         self.loop = asyncio.get_event_loop()
