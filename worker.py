@@ -18,7 +18,7 @@ class Worker:
         self.conditional.notify_all()
         self.conditional.release()
 
-    def sigintHandler(self):
+    def sigintHandler(self, asdf):
         asyncio.create_task(self.wakeUp())
 
     def serveSetupRequest(self, request):
