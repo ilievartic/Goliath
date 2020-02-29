@@ -1,8 +1,10 @@
 from utils import *
+from exceptions import *
 import sys
 import asyncio
 import queue
 import os
+
 
 class Lieutenant:
     def __init__(self, hostname, port, num_workers=max(os.cpu_count() - 2, 1)):
@@ -80,8 +82,8 @@ class Lieutenant:
 
         return None
 
-    def serveCloseRequset(self, request):
-        # TODO: Should we do something when the commander wants to close the connection?
+    def serveCloseRequest(self, request):
+        # TODO: Handle the closing of the commander
         return [CLOSE_TOKEN, REPLY_STOP]
 
     async def commanderCallback(self, reader, writer):
@@ -95,9 +97,11 @@ class Lieutenant:
         # Request loop
         while True:
             # Read request from the client
-            request = parseMessage(await reader.readline().strip())
+            var_string = (await reader.readline()).decode('utf-8').strip()
+            if (var_string is None or var_string == "" or len(var_string) == 0):
+                continue
+            request = parseMessage(var_string)
             response = None
-
             # Ensure the request is well-formated and serve the corresponding task
             if (request[-1] == REQUEST_STOP):
                 if (request[0] == STATUS_TOKEN):
@@ -106,17 +110,14 @@ class Lieutenant:
                     response = self.serveTasksetRequest(request, client_id)
                 elif (request[0] == CLOSE_TOKEN):
                     # The commander wants to close the connection; we acknowledge
-                    response = self.serveCloseRequset(request)
+                    response = self.serveCloseRequest(request)
                 else:
                     # We didn't see a request token that we recognized, 
                     response = self.serveBadRequest(request)
             else:
                 # If the message doesn't end with a '?' token, it's not a request
                 # (Lieutenant only expects requests from the commander, we will ignore)
-                # TODO: Shouldn't reply here, but what else should we do?
-                #       If the protocol for unexpected message is to send a message, could get an infinite volley.
-                #       So I've removed the serveBadRequest to alleviate that, but maybe we should throw an exception? Not sure.
-                pass
+                raise BadReplyException("The commander sent a bad request")
 
             if response is None:
                 # This means the request was well-formatted and the tasks were put on the queue
@@ -141,10 +142,15 @@ class Lieutenant:
         worker.stdin.write(task_str)
         await worker.stdin.drain()
 
-        response = parseMessage(await worker.stdout.readline().strip())
+        var_string = None
+        while (True):
+            var_string = (await worker.stdout.readline()).decode('utf-8').strip()
+            if (var_string is None or var_string == "" or len(var_string) == 0):
+                continue
+        response = parseMessage(var_string)
+
         if (response[0] != SETUP_TOKEN or response[-1] != REPLY_STOP):
-            # TODO: Handle this
-            pass
+            raise BadReplyException("Expected empty setup reply")
 
     async def execTask(self, worker, task, client_id):
         """Execute a task on the worker using an environment specified by client_id. Add the result to that clients' results list."""
@@ -156,23 +162,23 @@ class Lieutenant:
         await worker.stdin.drain()
 
         # Read response from worker
-        response = parseMessage(await worker.stdout.readline().strip())
+        var_string = None
+        while True:
+            var_string = (await worker.stdout.readline()).decode('utf-8').strip()
+            if (var_string is None or var_string == "" or len(var_string) == 0):
+                continue
+        response = parseMessage(var_string)
         if (response[0] != WORK_TOKEN or response[-1] != REPLY_STOP):
-            # TODO: Handle a bad response from a worker
-            pass
+            raise BadReplyException("Worker response has the wrong format")
         
         result = None
         for param in response[1:-1]:
             name, val = parseParameter(param)
             if (name == RESULT_PARAM):
                 result = val
-            else:
-                # NOTE: Should we ignore unexpected parameters?
-                pass
 
         if result is None:
-            # TODO: Handle a worker response that doesn't include a result
-            pass
+            raise NoWorkerResult("Worker has no result")
         
         task_id = task[0]
         self.results[client_id].append((task_id, result))

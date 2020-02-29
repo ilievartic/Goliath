@@ -3,6 +3,7 @@ import sys
 import asyncio
 import os
 import importlib
+import signal
 
 class Worker:
     def __init__(self):
@@ -10,6 +11,19 @@ class Worker:
         self.writer = None
         self.functions = {}
         self.modules = {}
+        self.conditional = None
+
+    async def wakeUp(self):
+        await self.conditional.acquire()
+        self.conditional.notify_all()
+        self.conditional.release()
+
+    def sigintHandler(self, asdf):
+        asyncio.create_task(self.wakeUp())
+
+    def serveBadRequest(self, request):
+        """Generates a response for a malformed request."""
+        return [request[0], "!"]
 
     def serveSetupRequest(self, request):
         task_def = None
@@ -20,19 +34,16 @@ class Worker:
                 task_def = unpack(val)
             elif (name == CLIENTID_PARAM):
                 client_id = unpack(val)
-            else:
-                # TODO: Handle bad request
-                pass
 
         if task_def is None or client_id is None:
-            # TODO: Handle bad request
-            pass
+            return [SETUP_TOKEN, ERROR_STOP]
 
         source_file = task_def[0]
-        function = task_def[2]
-        module_name = str(client_id) + "." + os.path.splitext(source_file)
+        function_name = task_def[2]
+        module_name = str(client_id) + "." + os.path.splitext(source_file)[0]
         importlib.invalidate_caches()
         self.modules[client_id] = importlib.import_module(module_name, ".")
+        self.functions[client_id] = getattr(self.modules[client_id], function_name)
 
         response = [SETUP_TOKEN, REPLY_STOP]
         return response
@@ -46,13 +57,9 @@ class Worker:
                 task = unpack(val)
             elif (name == CLIENTID_PARAM):
                 client_id = unpack(val)
-            else:
-                # TODO: handle bad request
-                pass
 
         if task is None or client_id is None:
-            # TODO: Handle bad request
-            pass
+            return [WORK_TOKEN, ERROR_STOP]
         
         tid, args = task
         result = self.functions[client_id](**args)
@@ -62,7 +69,14 @@ class Worker:
 
     async def taskExecutionLoop(self):
         while True:
-            request = parseMessage(await self.reader.readline().strip())
+            var_input = (await self.reader.readline()).decode('utf-8').strip()
+            if var_input is None or var_input == '':
+                await self.conditional.acquire()
+                await self.conditional.wait()
+                self.conditional.release()
+                continue
+            request = parseMessage(var_input)
+            # print(var_input)
             response = None
 
             if (request[-1] == REQUEST_STOP):
@@ -71,18 +85,17 @@ class Worker:
                 elif (request[0] == WORK_TOKEN):
                     response = self.serveWorkRequest(request)
                 else:
-                    # TODO: Handle bad requests
-                    pass
+                    response = self.serveBadRequest(request)
             else:
-                # TODO: Handle bad requests
-                pass
-
+                response = self.serveBadRequest(request)
             response_string = buildMessage(response)
-            self.writer.write(response_string)
+            # print(response_string)
+            self.writer.write(response_string.encode('utf-8'))
             await self.writer.drain()
 
     async def start(self):
         # Reader/writer defintion from https://stackoverflow.com/questions/52089869/how-to-create-asyncio-stream-reader-writer-for-stdin-stdout
+        self.conditional = asyncio.Condition()
         limit = asyncio.streams._DEFAULT_LIMIT
         loop = asyncio.get_event_loop()
         self.reader = asyncio.StreamReader(limit=limit, loop=loop)
@@ -92,8 +105,8 @@ class Worker:
             lambda: asyncio.streams.FlowControlMixin(loop=loop),
             os.fdopen(sys.stdout.fileno(), 'wb'))
         self.writer = asyncio.streams.StreamWriter(writer_transport, writer_protocol, None, loop)
-
-        await taskExecutionLoop()
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.sigintHandler, None)
+        await self.taskExecutionLoop()
 
 if __name__ == "__main__":
     """Create and run a worker."""
