@@ -1,7 +1,8 @@
-from .utils import *
+from utils import *
 import sys
 import asyncio
 import queue
+import os
 
 clients = {}
 num_tasks = {}
@@ -9,6 +10,15 @@ results = {}
 client_done_cond = {}
 workers = 0
 task_queue = queue.Queue()
+
+def configureClientFolder(task_def, client_id):
+    # Create a client directory and write all of the files to that directory
+    os.mkdir(str(client_id))
+    file_dict = task_def[1]
+    directory_prefix = str(client_id) + "/"
+    for filename, contents in file_dict.items():
+        with open(directory_prefix + filename, "wb") as f:
+            f.write(contents)
 
 def serveBadRequest(request):
     return [request[0], "!"]
@@ -32,7 +42,13 @@ def serveTasksetRequest(request, client_id):
             return serveBadRequest(request)
     
     if (not task_def_pack or not task_list):
-        return serveBadRequest(request)
+        return serveBadRequest(request, client_id)
+
+    # Configure client 'env' and remove the files from the task def
+    task_def = unpack(task_def_pack)
+    configureClientFolder(task_def)
+    task_def[1] = None
+    task_def_pack = pack(task_def)
     
     # Add tasks to the queue
     for task in task_list:
@@ -189,4 +205,4 @@ if __name__ == "__main__":
     if (len(sys.argv) < num_args):
         print("Too few args")
         exit(1)
-    asyncio.run(main(sys.argv[1], sys.argv[2], sys.argv[3]))
+    asyncio.run(main(sys.argv[1], int(sys.argv[2]), int(sys.argv[3])))
