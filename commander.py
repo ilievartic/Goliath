@@ -1,6 +1,6 @@
 import asyncio
 import time
-from .utils import *
+from utils import *
 class Commander:
     def __init__(self):
         self.loop = asyncio.get_event_loop()
@@ -61,8 +61,33 @@ class Commander:
     def setHostsAndPorts(self, listHost, listPort):
          return self.loop.run_until_complete(self.__setHostsAndPorts(listHost, listPort))
 
+    async def __callLieutenant(taskDefPacked, tidArgumentsPacked):
+        reader, writer = await asyncio.open_connection(host, port)
+        listStringBase = [TASKSET_TOKEN, " ", TASKDEF_PARAM, ":", taskDefPacked, " ", TASKLIST_PARAM, ":", tidArgumentsPacked, " ?"]
+        
+        toLieutenantMessage = ''.join(listStringBase)
+        writer.write(toLieutenantMessage);
+        await writer.drain()
+        
+        writer.close()
+        if hasattr(writer, 'wait_closed'):
+            await writer.wait_closed()
+
     def runCommander(taskDef, dictionaryArgs):
-        listTidArguments = zip(range(len(dictionaryArgs)), dictionaryArgs)
+        """
+        Parameters
+        ----------
+        taskDef: the general task definition that all tasks will need to reference. See utils.py for class definition
+        dictionaryArgs: a list of dictionaries. Each dictionary is associated with the parameters of a different task. Each K-V entry in the dictionary
+                        represents the Name of the variable - Value
+                        example: [{a:2, b:3}, {a:5, b:3}]
+        """
+        tidArgumentsPairs = zip(range(len(dictionaryArgs)), dictionaryArgs)
+        taskDefPacked = pack(taskDef);
+        tidArgumentsPacked = pack(tidArgumentPairs);
+        #For now, just pass to first host/port. Optimize later
+        #self.loop.run_until_complete(self.__callLieutenant(taskDefPacked, tidArgumentsPacked))
+        
         
     
 x = Commander()
