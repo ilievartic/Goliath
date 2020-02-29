@@ -1,5 +1,6 @@
 import asyncio
 import time
+from .utils import *
 class Commander:
     def __init__(self):
         self.loop = asyncio.get_event_loop()
@@ -53,12 +54,16 @@ class Commander:
         for idx in range(len(listHost)):
             tempResult = await self.__wait_host_port(listHost[idx], listPort[idx] ,10, 2)
             if (tempResult == False):
-                raise ValueError('Unable to establish connection');
+                raise ValueError('Unable to establish connection')
         self.listHost = listHost
         self.listPort = listPort
         
     def setHostsAndPorts(self, listHost, listPort):
          return self.loop.run_until_complete(self.__setHostsAndPorts(listHost, listPort))
+
+    def runCommander(taskDef, dictionaryArgs):
+        listTidArguments = zip(range(len(dictionaryArgs)), dictionaryArgs)
+        
     
 x = Commander()
 list1 = ["0.0.0.0"];
