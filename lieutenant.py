@@ -97,9 +97,11 @@ class Lieutenant:
         # Request loop
         while True:
             # Read request from the client
-            request = parseMessage(await reader.readline().decode('utf-8').strip())
+            var_string = (await reader.readline()).decode('utf-8').strip()
+            if (var_string is None or var_string == "" or len(var_string) == 0):
+                continue
+            request = parseMessage(var_string)
             response = None
-            print("ASDF")
             # Ensure the request is well-formated and serve the corresponding task
             if (request[-1] == REQUEST_STOP):
                 if (request[0] == STATUS_TOKEN):
@@ -140,7 +142,13 @@ class Lieutenant:
         worker.stdin.write(task_str)
         await worker.stdin.drain()
 
-        response = parseMessage(await worker.stdout.readline().decode('utf-8').strip())
+        var_string = None
+        while (True):
+            var_string = (await worker.stdout.readline()).decode('utf-8').strip()
+            if (var_string is None or var_string == "" or len(var_string) == 0):
+                continue
+        response = parseMessage(var_string)
+
         if (response[0] != SETUP_TOKEN or response[-1] != REPLY_STOP):
             raise BadReplyException("Expected empty setup reply")
 
@@ -154,7 +162,12 @@ class Lieutenant:
         await worker.stdin.drain()
 
         # Read response from worker
-        response = parseMessage(await worker.stdout.readline().decode('utf-8').strip())
+        var_string = None
+        while True:
+            var_string = (await worker.stdout.readline()).decode('utf-8').strip()
+            if (var_string is None or var_string == "" or len(var_string) == 0):
+                continue
+        response = parseMessage(var_string)
         if (response[0] != WORK_TOKEN or response[-1] != REPLY_STOP):
             raise BadReplyException("Worker response has the wrong format")
         
