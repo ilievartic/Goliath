@@ -11,7 +11,7 @@ class Worker:
         self.writer = None
         self.functions = {}
         self.modules = {}
-        self.conditional = asyncio.Condition()
+        self.conditional = None
 
     async def wakeUp(self):
         await self.conditional.acquire()
@@ -19,7 +19,7 @@ class Worker:
         self.conditional.release()
 
     def sigintHandler(self):
-        asyncio.run_coroutine_threadsafe(self.wakeUp(), asyncio.get_event_loop())
+        asyncio.create_task(self.wakeUp())
 
     def serveSetupRequest(self, request):
         task_def = None
@@ -101,6 +101,7 @@ class Worker:
 
     async def start(self):
         # Reader/writer defintion from https://stackoverflow.com/questions/52089869/how-to-create-asyncio-stream-reader-writer-for-stdin-stdout
+        self.conditional = asyncio.Condition()
         limit = asyncio.streams._DEFAULT_LIMIT
         loop = asyncio.get_event_loop()
         self.reader = asyncio.StreamReader(limit=limit, loop=loop)
