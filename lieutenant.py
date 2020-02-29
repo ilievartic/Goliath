@@ -40,7 +40,7 @@ def serveStatusRequest(request):
     return [STATUS_TOKEN, buildParameter(WORKERCOUNT_PARAM, workers), buildParameter(QUEUESIZE_PARAM, len(task_queue)), REPLY_STOP]
 
 def serveTasksetRequest(request, client_id):
-    """Generates a response for a status request."""
+    """Sets up the task queue to handle the taskset request and returns None, or returns a response if unable to do so."""
 
     # Extract expected parameters from the request
     task_def_pack = None
