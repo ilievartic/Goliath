@@ -29,10 +29,11 @@ class Worker:
             pass
 
         source_file = task_def[0]
-        function = task_def[2]
-        module_name = str(client_id) + "." + os.path.splitext(source_file)
+        function_name = task_def[2]
+        module_name = str(client_id) + "." + os.path.splitext(source_file)[0]
         importlib.invalidate_caches()
         self.modules[client_id] = importlib.import_module(module_name, ".")
+        self.functions[client_id] = getattr(self.modules[client_id], function_name)
 
         response = [SETUP_TOKEN, REPLY_STOP]
         return response
@@ -62,7 +63,11 @@ class Worker:
 
     async def taskExecutionLoop(self):
         while True:
-            request = parseMessage(await self.reader.readline().strip())
+            var_input = (await self.reader.readline()).decode('utf-8').strip()
+            if var_input is None or var_input == '':
+                continue
+            request = parseMessage(var_input)
+            print(var_input)
             response = None
 
             if (request[-1] == REQUEST_STOP):
@@ -76,9 +81,9 @@ class Worker:
             else:
                 # TODO: Handle bad requests
                 pass
-
             response_string = buildMessage(response)
-            self.writer.write(response_string)
+            print(response_string)
+            self.writer.write(response_string.encode('utf-8'))
             await self.writer.drain()
 
     async def start(self):
@@ -93,7 +98,7 @@ class Worker:
             os.fdopen(sys.stdout.fileno(), 'wb'))
         self.writer = asyncio.streams.StreamWriter(writer_transport, writer_protocol, None, loop)
 
-        await taskExecutionLoop()
+        await self.taskExecutionLoop()
 
 if __name__ == "__main__":
     """Create and run a worker."""
