@@ -5,7 +5,7 @@ import queue
 import os
 
 class Lieutenant:
-    def __init__(self, hostname, port, num_workers):
+    def __init__(self, hostname, port, num_workers=max(os.cpu_count() - 2, 1)):
         self.hostname = hostname 
         self.port = port
 
@@ -104,19 +104,6 @@ class Lieutenant:
                     response = self.serveStatusRequest(request)
                 elif (request[0] == TASKSET_TOKEN):
                     response = self.serveTasksetRequest(request, client_id)
-                    if response is None:
-                        # This means the request was well-formatted and the tasks were put on the queue
-                        # (serveTasksetRequest returns None as a response when it is successful)
-                        # (There is an action queued for later that will reply)
-                        await self.client_done_cond[client_id].acquire()
-                        await self.client_done_cond[client_id].wait()
-                        self.client_done_cond[client_id].release()
-                    else:
-                        # serveTasksetRequest only returns a response when there was a problem
-                        # (we should send it now, since there is no action queued to reply later)
-                        response_string = buildMessage(response)
-                        writer.write(response_string)
-                        await writer.drain()
                 elif (request[0] == CLOSE_TOKEN):
                     # The commander wants to close the connection; we acknowledge
                     response = self.serveCloseRequset(request)
@@ -131,6 +118,19 @@ class Lieutenant:
                 #       So I've removed the serveBadRequest to alleviate that, but maybe we should throw an exception? Not sure.
                 pass
 
+            if response is None:
+                # This means the request was well-formatted and the tasks were put on the queue
+                # (serveTasksetRequest returns None as a response when it is successful)
+                # (There is an action queued for later that will reply)
+                await self.client_done_cond[client_id].acquire()
+                await self.client_done_cond[client_id].wait()
+                self.client_done_cond[client_id].release()
+            else:
+                # serveTasksetRequest only returns a response when there was a problem
+                # (we should send it now, since there is no action queued to reply later)
+                response_string = buildMessage(response)
+                writer.write(response_string)
+                await writer.drain()
 
     async def loadTaskDef(self, worker, task_def_pack, client_id):
         """Send a request to set up the proper environment to a worker."""
@@ -140,6 +140,11 @@ class Lieutenant:
         task_str = buildMessage(task_str_arr)
         worker.stdin.write(task_str)
         await worker.stdin.drain()
+
+        response = parseMessage(await worker.stdout.readline().strip())
+        if (response[0] != SETUP_TOKEN or response[-1] != REPLY_STOP):
+            # TODO: Handle this
+            pass
 
     async def execTask(self, worker, task, client_id):
         """Execute a task on the worker using an environment specified by client_id. Add the result to that clients' results list."""
@@ -152,7 +157,7 @@ class Lieutenant:
 
         # Read response from worker
         response = parseMessage(await worker.stdout.readline().strip())
-        if (response[0] != RESULT_TOKEN):
+        if (response[0] != WORK_TOKEN or response[-1] != REPLY_STOP):
             # TODO: Handle a bad response from a worker
             pass
         
@@ -199,7 +204,7 @@ class Lieutenant:
             for client_id in self.clients.keys():
                 if len(self.results[client_id] == self.num_tasks[client_id]):
                     # Build the response string
-                    response_str = buildMessage([RESULT_TOKEN, buildParameter(RESULTLIST_PARAM, pack(self.results[client_id])), REPLY_STOP])
+                    response_str = buildMessage([TASKSET_TOKEN, buildParameter(RESULTLIST_PARAM, pack(self.results[client_id])), REPLY_STOP])
                     reader, writer = self.clients[client_id]
 
                     # Send the response
