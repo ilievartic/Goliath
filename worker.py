@@ -3,6 +3,7 @@ import sys
 import asyncio
 import os
 import importlib
+import signal
 
 class Worker:
     def __init__(self):
@@ -10,6 +11,15 @@ class Worker:
         self.writer = None
         self.functions = {}
         self.modules = {}
+        self.conditional = asyncio.Condition()
+
+    async def wakeUp(self):
+        await self.conditional.acquire()
+        self.conditional.notify_all()
+        self.conditional.release()
+
+    def sigintHandler(self):
+        asyncio.start_task(self.wakeUp())
 
     def serveSetupRequest(self, request):
         task_def = None
@@ -65,6 +75,9 @@ class Worker:
         while True:
             var_input = (await self.reader.readline()).decode('utf-8').strip()
             if var_input is None or var_input == '':
+                await self.conditional.acquire()
+                await self.conditional.wait()
+                self.conditional.release()
                 continue
             request = parseMessage(var_input)
             print(var_input)
@@ -97,7 +110,7 @@ class Worker:
             lambda: asyncio.streams.FlowControlMixin(loop=loop),
             os.fdopen(sys.stdout.fileno(), 'wb'))
         self.writer = asyncio.streams.StreamWriter(writer_transport, writer_protocol, None, loop)
-
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.sigintHandler, None)
         await self.taskExecutionLoop()
 
 if __name__ == "__main__":
