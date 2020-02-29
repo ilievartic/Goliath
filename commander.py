@@ -58,7 +58,8 @@ class Commander:
         self.listPort = listPort
         
     def setHostsAndPorts(self, listHost, listPort):
-         return self.loop.run_until_complete(self.__setHostsAndPorts(listHost, listPort))
+         self.loop.run_until_complete(self.__setHostsAndPorts(listHost, listPort))
+		 self.loop.close();
 
     async def __openAllConnections(self):
         """
@@ -192,9 +193,10 @@ class Commander:
 
         
         taskDefPacked = pack(taskDef)
-       
-        return self.loop.run_until_complete(self.__sendTasksToLieutenant(taskDefPacked, tidArgumentPairs))
-        
+        self.loop = asyncio.get_event_loop()
+        finalOutputData = self.loop.run_until_complete(self.__sendTasksToLieutenant(taskDefPacked, tidArgumentPairs))
+        self.loop.close();
+		return finalOutputData;
         
     
 x = Commander()
