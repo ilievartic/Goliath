@@ -80,7 +80,7 @@ class Worker:
                 self.conditional.release()
                 continue
             request = parseMessage(var_input)
-            print(var_input)
+            # print(var_input)
             response = None
 
             if (request[-1] == REQUEST_STOP):
@@ -95,7 +95,7 @@ class Worker:
                 # TODO: Handle bad requests
                 pass
             response_string = buildMessage(response)
-            print(response_string)
+            # print(response_string)
             self.writer.write(response_string.encode('utf-8'))
             await self.writer.drain()
 
