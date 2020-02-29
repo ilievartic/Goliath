@@ -1,23 +1,48 @@
-from .utils import *
+from utils import *
 import sys
 import asyncio
 import queue
+import os
 
+"""Contains all seen clients like { int(client_id): (asyncio.StreamReader(reader), asyncio.StreamReader(writer)), ... }."""
 clients = {}
+
+"""Contains all a count of requested tasks for all seen clients like { int(client_id): int(num_tasks), ... }."""
 num_tasks = {}
+
+"""Contains all results of tasks like { int(client_id): [ (int(task_id), object(result)), ... ], ... }."""
 results = {}
+
+"""Contains all done conditions of seen clients like { int(client_id): asyncio.Condition(done_condition), ... }."""
+client_done_cond = {}
+
+"""Counts the number of running workers under this lieutenant."""
 workers = 0
+
+"""Contains all tasks yet to be completed by this lieutenant."""
 task_queue = queue.Queue()
 
-async def serveBadRequest(request):
+def configureClientFolder(task_def, client_id):
+    """Creates a client directory and writes all of the required files to that directory."""
+    os.mkdir(str(client_id))
+    file_dict = task_def[1]
+    directory_prefix = str(client_id) + "/"
+    for filename, contents in file_dict.items():
+        with open(directory_prefix + filename, "wb") as f:
+            f.write(contents)
+
+def serveBadRequest(request):
+    """Generates a response for a malformed request."""
     return [request[0], "!"]
 
-async def serveStatusRequest(request):
-    return [STATUS_TOKEN, buildParameter(WORKERCOUNT_PARAM, str(workers)), buildParameter(QUEUESIZE_PARAM, str(len(task_queue))), "."]
+def serveStatusRequest(request):
+    """Generates a response for a status request."""
+    return [STATUS_TOKEN, buildParameter(WORKERCOUNT_PARAM, workers), buildParameter(QUEUESIZE_PARAM, len(task_queue)), REPLY_STOP]
 
-# Request = [TASKSET_TOKEN, packaged_taskset, packaged_task_list, "?"]
-async def serveTasksetRequest(request, client_id):
-        
+def serveTasksetRequest(request, client_id):
+    """Generates a response for a status request."""
+
+    # Extract expected parameters from the request
     task_def_pack = None
     task_list = None
     for param in request[1:-1]:
@@ -27,61 +52,101 @@ async def serveTasksetRequest(request, client_id):
         elif (name == TASKLIST_PARAM):
             task_list = unpack(val)
         else:
+            # If there is an unexpected parameter, treat as a malformed request
+            # NOTE: Should we ignore unexpected parameters?
             return serveBadRequest(request)
     
-    if (not task_def_pack or not task_list):
-        return serveBadRequest(request)
+    if not task_def_pack or not task_list:
+        return serveBadRequest(request, client_id)
+
+    # Configure client 'env' and remove the files from the task def
+    task_def = unpack(task_def_pack)
+    configureClientFolder(task_def)
+    task_def[1] = None
+    task_def_pack = pack(task_def)
     
+    # Add all provided tasks to the queue
     for task in task_list:
         task_queue.put((client_id, task_def_pack, task))
 
+    # Configure variables that will be used to manage monitor the progress of this request
     num_tasks[client_id] = len(task_list)
+    client_done_cond[client_id] = asyncio.Condition()
 
-async def serveCloseRequset(request):
-    return [CLOSE_TOKEN, "."]
+    return None
 
-def sendResponse(response, writer):
-    string_response = " ".join(response)
+def serveCloseRequset(request):
+    # TODO: Should we do something when the commander wants to close the connection?
+    return [CLOSE_TOKEN, REPLY_STOP]
 
 async def commanderCallback(reader, writer):
+    """Determine what to do when a commander connects to this lieutenant."""
+
+    # Add data for this new client (after choosing a new client ID)
     client_id = len(clients)
     results[client_id] = []
-    clients[(reader, writer)] = client_id
+    clients[client_id] = (reader, writer)
     
     # Request loop
     while True:
-        request = await reader.readline().strip().split(" ")
+        # Read request from the client
+        request = parseMessage(await reader.readline().strip())
         response = None
 
-        if (request[-1] == "?"):
+        # Ensure the request is well-formated and serve the corresponding task
+        if (request[-1] == REQUEST_STOP):
             if (request[0] == STATUS_TOKEN):
-                response = await serveStatusRequest(request)
+                response = serveStatusRequest(request)
             elif (request[0] == TASKSET_TOKEN):
-                response = await serveTasksetRequest(request, client_id)
+                response = serveTasksetRequest(request, client_id)
+                if response is None:
+                    # This means the request was well-formatted and the tasks were put on the queue
+                    # (serveTasksetRequest returns None as a response when it is successful)
+                    # (There is an action queued for later that will reply)
+                    await client_done_cond[client_id].acquire()
+                    await client_done_cond[client_id].wait()
+                    client_done_cond[client_id].release()
+                else:
+                    # serveTasksetRequest only returns a response when there was a problem
+                    # (we should send it now, since there is no action queued to reply later)
+                    response_string = buildMessage(response)
+                    writer.write(response_string)
+                    await writer.drain()
             elif (request[0] == CLOSE_TOKEN):
-                response = await serveCloseRequset(request)
+                # The commander wants to close the connection; we acknowledge
+                response = serveCloseRequset(request)
             else:
-                response = await serveBadRequest(request)
+                # We didn't see a request token that we recognized, 
+                response = serveBadRequest(request)
         else:
-            response = await serveBadRequest(request)
+            # If the message doesn't end with a '?' token, it's not a request
+            # (Lieutenant only expects requests from the commander, we will ignore)
+            # TODO: Shouldn't reply here, but what else should we do?
+            #       If the protocol for unexpected message is to send a message, could get an infinite volley.
+            #       So I've removed the serveBadRequest to alleviate that, but maybe we should throw an exception? Not sure.
+            pass
 
-        response_string = " ".join(response) + "\n"
-        await writer.write(response_string)
 
 async def loadTaskDef(worker, task_def_pack, client_id):
-    task_str_arr = [SETUP_TOKEN, buildParameter(TASKDEF_PARAM, task_def_pack), buildParameter(CLIENTID_PARAM, pack(client_id)) , "?"]
-    task_str = " ".join(task_str_arr) + "\n"
+    """Send a request to set up the proper environment to a worker."""
+
+    # Send setup request to worker
+    task_str_arr = [SETUP_TOKEN, buildParameter(TASKDEF_PARAM, task_def_pack), buildParameter(CLIENTID_PARAM, pack(client_id)), REQUEST_STOP]
+    task_str = buildMessage(task_str_arr)
     worker.stdin.write(task_str)
     await worker.stdin.drain()
 
 async def execTask(worker, task, client_id):
-    task_str_arr = [WORK_TOKEN, buildParameter(TASK_PARAM, pack(task)), buildParameter(CLIENTID_PARAM, pack(client_id)), "?"]
-    task_str = " ".join(task_str_arr) + "\n"
+    """Execute a task on the worker using an environment specified by client_id. Add the result to that clients' results list."""
+
+    # Send task to worker
+    task_str_arr = [WORK_TOKEN, buildParameter(TASK_PARAM, pack(task)), buildParameter(CLIENTID_PARAM, pack(client_id)), REQUEST_STOP]
+    task_str = buildMessage(task_str_arr)
     worker.stdin.write(task_str)
     await worker.stdin.drain()
 
-    # TODO: Get response from worker
-    response = await worker.stdout.readline().strip().split(" ")
+    # Read response from worker
+    response = parseMessage(await worker.stdout.readline().strip())
     if (response[0] != RESULT_TOKEN):
         # TODO: Handle a bad response from a worker
         pass
@@ -92,45 +157,60 @@ async def execTask(worker, task, client_id):
         if (name == RESULT_PARAM):
             result = val
         else:
-            # TODO: Handle a bad response from a worker
+            # NOTE: Should we ignore unexpected parameters?
             pass
 
-    if (not result):
-        # TODO: Handle a bad response from a worker
+    if result is None:
+        # TODO: Handle a worker response that doesn't include a result
         pass
     
     task_id = task[0]
     results[client_id].append((task_id, result))
 
 async def runWorker(worker):
+    """Feed a worker tasks from the queue and set up an environment if needed."""
     loaded_task_defs = []
     while True:
-        task = await task_queue.get()
-        client_id = task[0]
-        task_def_pack = task[1]
-        task = task[2]
+        # Pull a task off the queue
+        client_id, task_def_pack, task = await task_queue.get()
 
-        if (task_def_pack not in loaded_task_defs):
+        # Ensure the environment for the task has been loaded
+        if task_def_pack not in loaded_task_defs:
             await loadTaskDef(worker, task_def_pack, client_id)
             loaded_task_defs.append(task_def_pack)
         
+        # Execute the task and put its result in the client's list
         await execTask(worker, task, client_id)
 
 def startWorkers(num_workers):
+    """Spin up all of the worker processes and start tasks to feed tasks to the workers."""
     for _ in range(num_workers):
         worker = asyncio.create_subprocess_exec(program="python3", args=["worker.py"], stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
         asyncio.create_task(runWorker(worker))
 
 async def responseLoop():
+    """Continuously check if a client's work has been completed. If it has, send a response."""
     while True:
-        for client_id in clients.values():
+        for client_id in clients:
             if len(results[client_id] == num_tasks[client_id]):
-                # TODO: Send response
-                response_str_array = [RESULT_TOKEN, buildParameter(RESULTLIST_PARAM, pack(results[client_id])), "."]
+                # Build the response string
+                response_str = buildMessage([RESULT_TOKEN, buildParameter(RESULTLIST_PARAM, pack(results[client_id])), REPLY_STOP])
+                reader, writer = clients[client_id]
+
+                # Send the response
+                writer.write(response_str)
+                await writer.drain()
+
+                # Wake up the callback in charge of handling this request
+                await client_done_cond[client_id].acquire()
+                client_done_cond[client_id].notify_all()
+                client_done_cond[client_id].release()
+
         await asyncio.sleep(0)
 
 async def main(hostname, port, num_workers):
-    # Spin up workers
+    """Start the server and the workers."""
+    # Spin up the workers
     startWorkers(num_workers)
     asyncio.start_task(responseLoop())
     workers = num_workers
@@ -141,10 +221,9 @@ async def main(hostname, port, num_workers):
     async with server:
         await server.serve_forever()
 
-# Args: hostname, port, num_workers
 if __name__ == "__main__":
-    num_args = 4
-    if (len(sys.argv) < num_args):
-        print("Too few args")
+    """Send a hostname, port, and worker count, and run a lieutenant."""
+    if (len(sys.argv) < 4):
+        print("Usage: python3 lieutenant.py <hostname> <port> <num_workers>")
         exit(1)
-    asyncio.run(main(sys.argv[1], sys.argv[2], sys.argv[3]))
+    asyncio.run(main(sys.argv[1], int(sys.argv[2]), int(sys.argv[3])))
