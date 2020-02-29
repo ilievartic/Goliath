@@ -12,7 +12,7 @@ class Lieutenant:
         """Counts the number of running workers under this lieutenant."""
         self.num_workers = num_workers
 
-        """Contains all seen clients like { int(client_id): (asyncio.StreamReader(reader), asyncio.StreamReader(writer)), ... }."""
+        """Contains all seen clients like { int(client_id): (asyncio.StreamReader(reader), asyncio.StreamWriter(writer)), ... }."""
         self.clients = {}
 
         """Contains all a count of requested tasks for all seen clients like { int(client_id): int(num_tasks), ... }."""
