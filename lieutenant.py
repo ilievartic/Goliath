@@ -157,7 +157,7 @@ class Lieutenant:
 
         # Read response from worker
         response = parseMessage(await worker.stdout.readline().strip())
-        if (response[0] != RESULT_TOKEN):
+        if (response[0] != WORK_TOKEN or response[-1] != REPLY_STOP):
             # TODO: Handle a bad response from a worker
             pass
         
@@ -204,7 +204,7 @@ class Lieutenant:
             for client_id in self.clients.keys():
                 if len(self.results[client_id] == self.num_tasks[client_id]):
                     # Build the response string
-                    response_str = buildMessage([RESULT_TOKEN, buildParameter(RESULTLIST_PARAM, pack(self.results[client_id])), REPLY_STOP])
+                    response_str = buildMessage([TASKSET_TOKEN, buildParameter(RESULTLIST_PARAM, pack(self.results[client_id])), REPLY_STOP])
                     reader, writer = self.clients[client_id]
 
                     # Send the response
