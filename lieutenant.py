@@ -29,6 +29,8 @@ class Lieutenant:
         """Contains all tasks yet to be completed by this lieutenant."""
         self.task_queue = queue.Queue()
 
+        asyncio.run(self.start())
+
     def configureClientFolder(self, task_def, client_id):
         """Creates a client directory and writes all of the required files to that directory."""
         os.mkdir(str(client_id))
@@ -242,4 +244,3 @@ if __name__ == "__main__":
         print("Usage: python3 lieutenant.py <hostname> <port> <num_workers>")
         exit(1)
     lieutenant = Lieutenant(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
-    asyncio.run(lieutenant.start())
