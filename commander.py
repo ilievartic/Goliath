@@ -6,8 +6,8 @@ class Commander:
         self.loop = asyncio.get_event_loop()
     
     async def __wait_host_port(self, host, port, duration=10, delay=2):
-        """Repeatedly try if a port on a host is open until duration seconds passed
-        
+        """
+        Repeatedly try if a port on a host is open until duration seconds passed
         Parameters
         ----------
         host : str
@@ -39,7 +39,6 @@ class Commander:
                     continue;
         return False
     async def __setHostsAndPorts(self, listHost, listPort):
-
         """
         Parameters
         ----------
@@ -61,17 +60,124 @@ class Commander:
     def setHostsAndPorts(self, listHost, listPort):
          return self.loop.run_until_complete(self.__setHostsAndPorts(listHost, listPort))
 
-    async def __callLieutenant(taskDefPacked, tidArgumentsPacked):
-        reader, writer = await asyncio.open_connection(host, port)
-        listStringBase = [TASKSET_TOKEN, " ", TASKDEF_PARAM, ":", taskDefPacked, " ", TASKLIST_PARAM, ":", tidArgumentsPacked, " ?"]
+    def __openAllConnections(self):
+        """
+        Open connections to all the user specified servers
+        """
         
-        toLieutenantMessage = ''.join(listStringBase)
+        listConnections = []
+        for idx in range(len(self.listHost)):
+            host = self.listHost[idx]
+            port = self.listPort[idx];
+            reader, writer = await asyncio.open_connection(host, port);
+            listConnections.append((reader,writer));
+        return listConnections;
+    
+    async def __pollLieutenantStatus(self, listConnections):
+        """
+        Poll each of the lieutenants to determine their status, num workers,and tasks to do
+        Parameters
+        ---------
+        listConnections: List of Reader, writer connection tuples
+        """
+        
+        listStatusData = []
+        for idx in range(len(self.listHost)):
+            reader = listConnections[idx][0]
+            writer = listConnections[idx][1]
+            listStringStatusPoll = [STATUS_TOKEN, "?"]
+            stringStatusPoll = " ".join(listStringStatusPoll) + "\n"
+            writer.write(stringStatusPoll)
+            await writer.drain();
+            statusResponse = await reader.readline().strip().split(" ")
+            if (statusResponse[-1] == "."):
+                if (statusResponse[0] == STATUS_TOKEN):
+                    numWorkerParam, numWorkers = parseParameter(statusResponse[1])
+                    queueSizeParam, queueSize = parseParameter(statusResponse[2])
+                    listStatusData.append((int(numWorkers), int(queueSize)));            
+
+        return listStatusData;
+
+    async def __callLieutenant(self, taskDefPacked, tidArgumentsPacked, reader, writer):
+        """
+        Call the Lieutenant with the given task set
+        Parameters
+        ----------
+        taskDefPacked: generic task data
+        tidArgumentsPacked: specific task arguments that have been packed
+        reader: reader created in openConnections
+        writer: writer created in openConnections
+        """
+        listStringTask = [TASKSET_TOKEN, buildParameter(TASKDEF_PARAM, taskDefPacked), buildParameter(TASKLIST_PARAM,tidArgumentsPacked), "?"]
+                
+        toLieutenantMessage = " ".join(listStringBase) + "\n"
         writer.write(toLieutenantMessage);
         await writer.drain()
+        
+        #writer.close()
+        #if hasattr(writer, 'wait_closed'):
+         #   await writer.wait_closed()
+
+    async def __readFromLieutenant(self, reader, writer):
+        dataResponse = await reader.readline().strip().split(" ")
+        if (dataResponse[-1] != "."):
+            return []
+        if (dataResponse[0] != TASKSET_TOKEN):
+            return []
+        dataOutputFromTask = dataResponse[1]
         
         writer.close()
         if hasattr(writer, 'wait_closed'):
             await writer.wait_closed()
+        return dataOutputFromTask
+
+    async def __sendTasksToLieutenant(self, taskDefPacked, tidArgumentsPairs):
+        """
+        Given the packed generic task definition, compute the distribution of tasks among lieutenants and send those tasks
+        Finally, read the return data from each task
+        Parameters
+        ----------
+        taskDefPacked: generic task data
+        tidArgumentsPairs: all unpacked task specific arguments
+        """
+        listConnections = await self.__openAllConnections()
+        listStatusData = await self.__pollLieutenantStatus(listConnections)
+        totalNumWorkers = sum(listStatusData[0])
+        totalNumTasks = len(tidArgumentsPairs)
+        listNumTasksPerLieutenant = []
+        numberOfTasksAssigned = 0
+        appendZero = False
+        for idx in range(len(listConnections)):
+            if (appendZero):
+                listNumTasksPerLieutenant.append(0)
+                continue
+            proportionOfTotalTasks = int((listStatusData[idx][0] / totalNumWorkers) * totalNumTasks)
+            if (numberOfTasksAssigned + proportionOfTotalTasks > totalNumTasks):
+                listNumTasksPerLieutenant.append(totalNumTasks - numberOfTasksAssigned)
+                appendZero = True
+                continue
+            numberOfTasksAssigned += proportionOfTotalTasks;
+            listNumTasksPerLieutenant.append(proportionOfTotalTasks);
+            if (idx + 1 == len(listConnections) - 1):
+                listNumTasksPerLieutenant.append(max(0, totalNumTasks - numberOfTasksAssigned))
+                break
+        prevIdx = 0 #keep track of initial idx in array slice of tidArgumentsPairs
+        idxOfStop = len(listNumTasksPerLieutenant)
+        for idx in range(len(listNumTasksPerLieutenant)):
+            await self.__callLieutenant(taskDefPacked, pack(tidArgumentsPairs[prevIdx:prevIdx + listNumTasksPerLieutenant[idx]])
+                                        , listConnections[idx][0], listConnections[idx][1])
+            prevIdx = prevIdx + listNumTasksPerLieutenant[idx];
+            if (prevIdx == len(listNumTasksPerLieutenant)):
+                idxOfStop = idx + 1
+                break;
+
+        data_out = [];
+        for i in range(idxOfStop):
+            data_out += await self.__readFromLieutenant(listConnections[idx][0], listConnections[idx][1])
+        data_out.sort() #this will sort the list of tuples by the first tuple element, which in this case is the Task ID
+
+        return list(zip(*data_out))[:, 1]
+        
 
     def runCommander(taskDef, dictionaryArgs):
         """
@@ -83,10 +189,11 @@ class Commander:
                         example: [{a:2, b:3}, {a:5, b:3}]
         """
         tidArgumentsPairs = zip(range(len(dictionaryArgs)), dictionaryArgs)
-        taskDefPacked = pack(taskDef);
-        tidArgumentsPacked = pack(tidArgumentPairs);
-        #For now, just pass to first host/port. Optimize later
-        #self.loop.run_until_complete(self.__callLieutenant(taskDefPacked, tidArgumentsPacked))
+
+        
+        taskDefPacked = pack(taskDef)
+       
+        return self.loop.run_until_complete(self.__sendTasksToLieutenant(taskDefPacked, tidArgumentPairs))
         
         
     
