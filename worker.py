@@ -2,17 +2,63 @@ from utils import *
 import sys
 import asyncio
 import os
+import importlib
 
 class Worker:
     def __init__(self):
         self.reader = None
         self.writer = None
+        self.functions = {}
+        self.modules = {}
 
     def serveSetupRequest(self, request):
-        pass
+        task_def = None
+        client_id = None
+        for param in request[1:-1]:
+            name, val = parseParameter(param)
+            if (name == TASKDEF_PARAM):
+                task_def = unpack(val)
+            elif (name == CLIENTID_PARAM):
+                client_id = unpack(val)
+            else:
+                # TODO: Handle bad request
+                pass
+
+        if task_def is None or client_id is None:
+            # TODO: Handle bad request
+            pass
+
+        source_file = task_def[0]
+        function = task_def[2]
+        module_name = str(client_id) + "." + os.path.splitext(source_file)
+        importlib.invalidate_caches()
+        self.modules[client_id] = importlib.import_module(module_name, ".")
+
+        response = [SETUP_TOKEN, REPLY_STOP]
+        return response
 
     def serveWorkRequest(self, request):
-        pass
+        task = None
+        client_id = None
+        for param in request[1:-1]:
+            name, val = parseParameter(param)
+            if (name == TASK_PARAM):
+                task = unpack(val)
+            elif (name == CLIENTID_PARAM):
+                client_id = unpack(val)
+            else:
+                # TODO: handle bad request
+                pass
+
+        if task is None or client_id is None:
+            # TODO: Handle bad request
+            pass
+        
+        tid, args = task
+        result = self.functions[client_id](**args)
+
+        response = [WORK_TOKEN, buildParameter(RESULT_PARAM, pack(result))]
+        return response
 
     async def taskExecutionLoop(self):
         while True:

@@ -5,7 +5,7 @@ import queue
 import os
 
 class Lieutenant:
-    def __init__(self, hostname, port, num_workers):
+    def __init__(self, hostname, port, num_workers=max(os.cpu_count() - 2, 1)):
         self.hostname = hostname 
         self.port = port
 
