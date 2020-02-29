@@ -19,7 +19,7 @@ class Worker:
         self.conditional.release()
 
     def sigintHandler(self):
-        asyncio.start_task(self.wakeUp())
+        asyncio.run_coroutine_threadsafe(wakeUp(), asyncio.get_event_loop())
 
     def serveSetupRequest(self, request):
         task_def = None
