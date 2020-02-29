@@ -95,9 +95,9 @@ class Lieutenant:
         # Request loop
         while True:
             # Read request from the client
-            request = parseMessage(await reader.readline().strip())
+            request = parseMessage(await reader.readline().decode('utf-8').strip())
             response = None
-
+            print("ASDF")
             # Ensure the request is well-formated and serve the corresponding task
             if (request[-1] == REQUEST_STOP):
                 if (request[0] == STATUS_TOKEN):
@@ -141,7 +141,7 @@ class Lieutenant:
         worker.stdin.write(task_str)
         await worker.stdin.drain()
 
-        response = parseMessage(await worker.stdout.readline().strip())
+        response = parseMessage(await worker.stdout.readline().decode('utf-8').strip())
         if (response[0] != SETUP_TOKEN or response[-1] != REPLY_STOP):
             # TODO: Handle this
             pass
@@ -156,7 +156,7 @@ class Lieutenant:
         await worker.stdin.drain()
 
         # Read response from worker
-        response = parseMessage(await worker.stdout.readline().strip())
+        response = parseMessage(await worker.stdout.readline().decode('utf-8').strip())
         if (response[0] != WORK_TOKEN or response[-1] != REPLY_STOP):
             # TODO: Handle a bad response from a worker
             pass
