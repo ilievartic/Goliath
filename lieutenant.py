@@ -3,25 +3,16 @@ import sys
 import asyncio
 import queue
 
-STATUS_TOKEN = "STATUS"
-TASKSET_TOKEN = "TASKSET"
-CLOSE_TOKEN = "CLOSE"
-SETUP_TOKEN = "SETUP"
-WORK_TOKEN = "WORK"
-
-TASKDEF_PARAM = "TASKDEF"
-TASKLIST_PARAM = "TASKLIST"
-
 clients = {}
 results = []
+workers = 0
 task_queue = queue.Queue()
-
 
 async def serveBadRequest(request):
     return [request[0], "!"]
 
 async def serveStatusRequest(request):
-    return [str(len(workers)), str(len(task_queue)), "."]
+    return [str(workers), str(len(task_queue)), "."]
 
 # Request = [TASKSET_TOKEN, packaged_taskset, packaged_task_list, "?"]
 async def serveTasksetRequest(request, client_id):
@@ -74,7 +65,7 @@ async def commanderCallback(reader, writer):
         writer.write(response_string)
 
 async def loadTaskDef(worker, task_def, client_id):
-    task_str = [WORK_TOKEN]
+    task_str = [WORK_TOKEN, "{}:{}".format(TASKDEF_PARAM, pack(task_def)), "{}:{}".format(CLIENTID_PARAM, pack(client_id)) ]
 
 async def execTask(worker, task, client_id):
     pass
@@ -101,6 +92,7 @@ def startWorkers(num_workers):
 async def main(hostname, port, num_workers):
     # Spin up workers
     startWorkers(num_workers)
+    workers = num_workers
 
     # Start listening for commander requests
     server = await asyncio.start_server(commanderCallback, hostname, port)
