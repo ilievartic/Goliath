@@ -8,6 +8,12 @@ class Worker:
         self.reader = None
         self.writer = None
 
+    def serveSetupRequest(self, request):
+        pass
+
+    def serveWorkRequest(self, request):
+        pass
+
     async def taskExecutionLoop(self):
         while True:
             request = parseMessage(await self.reader.readline().strip())
@@ -25,7 +31,9 @@ class Worker:
                 # TODO: Handle bad requests
                 pass
 
-
+            response_string = buildMessage(response)
+            self.writer.write(response_string)
+            await self.writer.drain()
 
     async def start(self):
         # Reader/writer defintion from https://stackoverflow.com/questions/52089869/how-to-create-asyncio-stream-reader-writer-for-stdin-stdout
