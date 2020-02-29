@@ -2,6 +2,7 @@
 HydraPower
 HyThread
 ProcHelper
-CerbeThread
-MILDZ or ZLIMD or DLIMZ
+CerberThread
+MILDZ
 FastComp
+MultiProc
