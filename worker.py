@@ -3,6 +3,7 @@ import sys
 import asyncio
 import os
 import importlib
+import signal
 
 class Worker:
     def __init__(self):
@@ -10,6 +11,15 @@ class Worker:
         self.writer = None
         self.functions = {}
         self.modules = {}
+        self.conditional = None
+
+    async def wakeUp(self):
+        await self.conditional.acquire()
+        self.conditional.notify_all()
+        self.conditional.release()
+
+    def sigintHandler(self, asdf):
+        asyncio.create_task(self.wakeUp())
 
     def serveBadRequest(self, request):
         """Generates a response for a malformed request."""
@@ -61,9 +71,12 @@ class Worker:
         while True:
             var_input = (await self.reader.readline()).decode('utf-8').strip()
             if var_input is None or var_input == '':
+                await self.conditional.acquire()
+                await self.conditional.wait()
+                self.conditional.release()
                 continue
             request = parseMessage(var_input)
-            print(var_input)
+            # print(var_input)
             response = None
 
             if (request[-1] == REQUEST_STOP):
@@ -76,12 +89,13 @@ class Worker:
             else:
                 response = self.serveBadRequest(request)
             response_string = buildMessage(response)
-            print(response_string)
+            # print(response_string)
             self.writer.write(response_string.encode('utf-8'))
             await self.writer.drain()
 
     async def start(self):
         # Reader/writer defintion from https://stackoverflow.com/questions/52089869/how-to-create-asyncio-stream-reader-writer-for-stdin-stdout
+        self.conditional = asyncio.Condition()
         limit = asyncio.streams._DEFAULT_LIMIT
         loop = asyncio.get_event_loop()
         self.reader = asyncio.StreamReader(limit=limit, loop=loop)
@@ -91,7 +105,7 @@ class Worker:
             lambda: asyncio.streams.FlowControlMixin(loop=loop),
             os.fdopen(sys.stdout.fileno(), 'wb'))
         self.writer = asyncio.streams.StreamWriter(writer_transport, writer_protocol, None, loop)
-
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.sigintHandler, None)
         await self.taskExecutionLoop()
 
 if __name__ == "__main__":
