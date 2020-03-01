@@ -1,4 +1,4 @@
-from goliath.utils import *
+from .utils import *
 import asyncio
 import time
 import sys

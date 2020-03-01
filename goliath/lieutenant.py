@@ -1,5 +1,5 @@
-from goliath.utils import *
-from goliath.exceptions import *
+from .utils import *
+from .exceptions import *
 import sys
 import asyncio
 import queue
