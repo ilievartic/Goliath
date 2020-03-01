@@ -18,7 +18,7 @@ Goliath abstracts this entire model and aggregates the results from the servers,
 
 ## Requirements
 
-- Python 3.8
+- Python 3.7+
 
 ## Installation
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
 To run a lieutenant on this machine on port 3333 with 8 worker processes:
 
-`python3.8 -m goliath.lieutenant localhost 3333 8`
+`python3 -m goliath.lieutenant localhost 3333 8`
 
 ## Licensing
 
