@@ -97,10 +97,8 @@ class Lieutenant:
         installed.extend(sys.builtin_module_names)
         installed.extend([x.name for x in pkgutil.iter_modules()])
         imports = None
-        # print('a')
         with open(directory_prefix + task_def[0], "r") as src:
             imports = "\n".join([line for line in src.readlines() if 'import' in line])
-        # print('b')
         for package in finder.modules:
             if package not in installed and package in imports:
                 print("Attempting to install " + package)
@@ -171,7 +169,6 @@ class Lieutenant:
             # Read request from the client
             var_string = (await reader.readline()).decode('utf-8').strip()
             if (var_string is None or var_string == "" or len(var_string) == 0):
-                # time.sleep(2)
                 continue
             request = parseMessage(var_string)
             response = None

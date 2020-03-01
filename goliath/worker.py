@@ -76,7 +76,6 @@ class Worker:
                 self.conditional.release()
                 continue
             request = parseMessage(var_input)
-            # print(var_input)
             response = None
 
             if (request[-1] == REQUEST_STOP):
