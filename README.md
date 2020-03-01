@@ -54,7 +54,7 @@ def foo_args(bar_range, baz_range):
             yield { 'bar': bar, 'baz': baz }
 
 # Connect to lieutenants, run all the functions, and get results
-results = cmdr.run(foo, foo_args(range(100), range(100)), ['foo.py'])
+results = cmdr.run(foo, list(foo_args(range(10), range(10))), ['foo.py'])
 ```
 
 ### Performing work (Lieutenant & Worker)
