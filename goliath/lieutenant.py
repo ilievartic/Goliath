@@ -168,7 +168,7 @@ class Lieutenant:
         while True:
             stop = False
             # Read request from the client
-            var_string = readline_infinite(reader)
+            var_string = await readlineInfinite(reader)
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
             request = parseMessage(var_string)
@@ -222,7 +222,7 @@ class Lieutenant:
 
         var_string = None
         while (True):
-            var_string = readline_infinite(worker.stdout)
+            var_string = await readlineInfinite(worker.stdout)
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
             else:
@@ -245,7 +245,7 @@ class Lieutenant:
         # Read response from worker
         var_string = None
         while True:
-            var_string = readline_infinite(worker.stdout)
+            var_string = await readlineInfinite(worker.stdout)
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
             else:
@@ -311,9 +311,11 @@ class Lieutenant:
                     response_str = buildMessage([TASKSET_TOKEN, buildParameter(RESULTLIST_PARAM, pack(self.results[client_id])), REPLY_STOP])
                     reader, writer = self.clients[client_id]
 
+                    print('sending response')
                     # Send the response
                     writer.write(response_str.encode('utf-8'))
                     await writer.drain()
+                    print('drained')
 
                     # Do some cleanup
                     self.results[client_id] = []
