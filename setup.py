@@ -5,14 +5,13 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='goliath',  
-    version='0.1.2',
-    scripts=['goliath'] ,
-    author="Ilie Vartic",
+    version='0.1.3.2',
+    author="Ilie Vartic, Logan Pulley, Zach, Deepan Venkatesh, Mani",
     author_email="ilie.vartic@gmail.com",
-    description="This package enables python coders to build \"multi-threaded\" programs and optimize their data processing.",
+    description="This package enables Python to offload sets of function calls to pools of remote worker processes.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/ilievartic/Goliath/archive/v0.1.2.tar.gz",
+    url="https://github.com/ilievartic/Goliath/",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
