@@ -230,7 +230,7 @@ class Lieutenant:
         """Start the server and the workers."""
         # Spin up the workers
         self.startWorkers()
-        asyncio.start_task(self.responseLoop())
+        asyncio.create_task(self.responseLoop())
 
         # Start listening for commander requests
         server = await asyncio.start_server(self.commanderCallback, self.hostname, self.port)
