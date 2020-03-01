@@ -5,3 +5,6 @@
 build/
 dist/
 goliath.egg-info/
+
+# Ignore quick testbenches
+*test.py
