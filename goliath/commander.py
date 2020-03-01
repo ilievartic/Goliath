@@ -65,10 +65,8 @@ class Commander:
     async def readLieutenantResponse(self, lieutenant_id):
         print('tryna get a response')
         reader, writer = self.lieutenants[lieutenant_id]
-        response_message = None
-        while response_message is None:
-            reponse_message = await readlineInfinite(reader)
-        response = parseMessage(response_message)
+        # print(reader)
+        response = parseMessage(await readlineInfinite(reader))
         print('c68')
         results = None
         if response[-1] == REPLY_STOP:

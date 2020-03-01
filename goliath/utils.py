@@ -62,6 +62,8 @@ def parseMessage(message):
 async def readlineInfinite(reader):
     buffer = b''
     while not reader.at_eof():
+        if len(buffer) != 0:
+            print(buffer)
         try:
             bytearr = await reader.readuntil(b'\n')
             buffer += bytearr
