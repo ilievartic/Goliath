@@ -1,5 +1,6 @@
 import pickle
 import base64
+import asyncio
 
 """Tokens are words that go at the beginning of a message to indicate the topic and parameters."""
 STATUS_TOKEN = "STATUS"
@@ -57,3 +58,18 @@ def buildMessage(words):
 def parseMessage(message):
     """Parses a message into a list of words."""
     return message.split(' ')
+
+async def readline_infinite(reader):
+    buffer = "".encode('utf-8')
+    while (True):
+        try:
+            bytearr = await reader.readuntil('\n')
+            buffer += bytearr
+            break
+        except asyncio.LimitOverrunError:
+            bytearr = reader.readexactly(2**16 - 2**4)
+            buffer += bytearr
+
+    return buffer.decode('utf-8').strip()
+
+        
