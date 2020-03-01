@@ -100,7 +100,7 @@ class Commander:
 
         # Sort the list of tuples by the first tuple element, which in this case is the task ID
         results = sorted([await self.readLieutenantResponse(l) for l in self.lieutenants])
-        return list(zip(*results)[1]) if results else []
+        return [item[1:] for item in results] if results else []
         
     def run(self, function, args, filenames):
         """
