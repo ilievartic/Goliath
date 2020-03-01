@@ -8,9 +8,7 @@ class Commander:
         """Initializes object."""
 
         """Contains all lieutenants like { int(lieutenant_id): (asyncio.StreamReader(reader), asyncio.StreamWriter(writer)), ... }."""
-        self.lieutenants = {}
-        if lieutenants is not None:
-            asyncio.run(self.connect(lieutenants))
+        self.lieutenants = lieutenants
     
     async def connect(self, lieutenants):
         connections = [await asyncio.open_connection(host, port) for host, port in lieutenants]
@@ -21,6 +19,7 @@ class Commander:
         """Poll each of the lieutenants to determine their status."""
         worker_counts = {}
         queue_sizes = {}
+        # print(self.lieutenants)
         for lieutenant_id, (reader, writer) in self.lieutenants.items():
             writer.write(buildMessage([STATUS_TOKEN, REQUEST_STOP]).encode('utf-8'))
             await writer.drain()
@@ -28,7 +27,7 @@ class Commander:
             if response[-1] == REPLY_STOP:
                 if response[0] == STATUS_TOKEN:
                     for param in response[1:-1]:
-                        key, value = parseParam(param)
+                        key, value = parseParameter(param)
                         if key == WORKERCOUNT_PARAM:
                             worker_counts[lieutenant_id] = int(value)
                         elif key == QUEUESIZE_PARAM:
@@ -109,9 +108,13 @@ class Commander:
         args: a list of dictionaries. Each dictionary is associated with the parameters of a different task. Each K-V entry in the dictionary represents a named parameter and value example: [ { 'foo': 100, 'bar': 200 } ]
         filenames: a list of necessary files to include, with the source file first
         """
+        return asyncio.run(self.asyncRun(function, args, filenames))
+        
+    async def asyncRun(self, function, args, filenames):
+        await self.connect(self.lieutenants)
         file_contents = {}
         for filename in filenames:
             with open(filename, 'rb') as f:
                 file_contents[filename] = f.read()
         task_def = (filenames[0], file_contents, function)
-        return asyncio.run(self.distributeTasksets(pack(task_def), pack(args)))
+        return await self.distributeTasksets(pack(task_def), pack(args))
