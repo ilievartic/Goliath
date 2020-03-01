@@ -35,14 +35,6 @@ Install with `pip`:
 
 from goliath.commander import Commander
 
-# Create a commander (doesn't connect yet)
-cmdr = Commander([
-    # Lieutenants can be hostnames, domains, IPs
-    ('lieutenant-hostname', 8080),
-    ('lieutenant.com', 3333),
-    ('127.0.0.1', 2222)
-])
-
 # The function to execute
 def foo(bar, baz):
     return str(bar) + str(baz)
@@ -53,8 +45,16 @@ def foo_args(bar_range, baz_range):
         for baz in baz_range:
             yield { 'bar': bar, 'baz': baz }
 
-# Connect to lieutenants, run all the functions, and get results
-results = cmdr.run(foo, list(foo_args(range(10), range(10))), ['foo.py'])
+if __name__ == '__main__':
+    # Create a commander (doesn't connect yet)
+    cmdr = Commander([
+        # Lieutenants can be hostnames, domains, IPs
+        ('lieutenant-hostname', 8080),
+        ('lieutenant.com', 3333),
+        ('127.0.0.1', 2222)
+    ])
+    # Connect to lieutenants, run all the functions, and get results
+    results = cmdr.run(foo, list(foo_args(range(10), range(10))), ['foo.py'])
 ```
 
 ### Performing work (Lieutenant & Worker)

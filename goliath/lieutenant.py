@@ -101,7 +101,6 @@ class Lieutenant:
             imports = "\n".join([line for line in src.readlines() if 'import' in line])
         for package in finder.modules:
             if package not in installed and package in imports:
-                print("Attempting to install " + package)
                 self.installPackage(package)
 
     def serveBadRequest(self, request):
