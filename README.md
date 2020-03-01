@@ -2,7 +2,7 @@
 
 ### Authors
 
-Manikandan Swaminathan, Logan Pulley, Deepan Venkatesh, Ilie Vartic, Zachary Oldham
+ Logan Pulley, Zachary Oldham, Ilie Vartic, Deepan Venkatesh, Manikandan Swaminathan
 
 ### Abstract
 
