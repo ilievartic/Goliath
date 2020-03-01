@@ -129,10 +129,11 @@ class Commander:
         """
         Parameters
         ----------
-        function: the name of the function to run
+        function: the function to run
         args: a list of dictionaries. Each dictionary is associated with the parameters of a different task. Each K-V entry in the dictionary represents a named parameter and value example: [ { 'foo': 100, 'bar': 200 } ]
         filenames: a list of necessary files to include, with the source file first
         """
+        function = function.__name__
         file_contents = {}
         for filename in filenames:
             with open(filename, 'rb') as f:
