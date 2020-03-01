@@ -8,6 +8,11 @@ import random
 import shutil
 import signal
 import time
+import re
+import subprocess
+import copy
+import pkg_resources
+import pip
 
 class Lieutenant:
 
@@ -37,6 +42,45 @@ class Lieutenant:
 
         asyncio.run(self.start())
 
+    # Will break on custom modules not defined by filenames
+    def getPipDependencies(self, source_file, dependent_files, client_id):
+        text = None
+        with open(str(client_id) + "/" + source_file, "r") as f:
+            text = f.read()
+        m = re.findall(IMPORT_REGEX, text)
+        potential_packages = []
+        for match in m:
+            potential_packages.append(match[3])
+
+        local_packages = []
+        pip_packages = []
+        for i in range(len(potential_packages)):
+            potential_package = potential_packages[i]
+            if (potential_package + ".py" in dependent_files):
+                local_packages.append(potential_package)
+            else:
+                pip_packages.append(potential_package)
+
+        results = pip_packages
+        for local_package in local_packages:
+            files = copy.deepcopy(dependent_files)
+            files.remove(local_package)
+            results.extend(self.getPipDependencies(local_package + ".py", files, client_id))
+        
+        final_results = []
+        for result in results:
+            if result not in local_packages:
+                final_results.append(result)
+        
+        return final_results
+
+    # This function from https://stackoverflow.com/questions/12332975/installing-python-module-within-code
+    def installPackage(self, package):
+        if hasattr(pip, 'main'):
+            pip.main(['install', package])
+        else:
+            pip._internal.main(['install', package])
+
     def configureClientFolder(self, task_def, client_id):
         """Creates a client directory and writes all of the required files to that directory."""
         shutil.rmtree(str(client_id), ignore_errors=True)
@@ -46,6 +90,14 @@ class Lieutenant:
         for filename, contents in file_dict.items():
             with open(directory_prefix + filename, "wb") as f:
                 f.write(contents)
+
+        dependent_files = copy.deepcopy(list(task_def[1].keys()))
+        dependent_files.remove(task_def[0])
+        pip_packages = self.getPipDependencies(task_def[0], task_def[1].keys(), client_id)
+        installed = list({pkg.key for pkg in pkg_resources.working_set})
+        for package in pip_packages:
+            if package not in installed:
+                self.installPackage(package)
 
     def serveBadRequest(self, request):
         """Generates a response for a malformed request."""

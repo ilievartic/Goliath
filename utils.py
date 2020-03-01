@@ -24,6 +24,9 @@ REQUEST_STOP = "?"
 REPLY_STOP = "."
 ERROR_STOP = "!"
 
+IMPORT_REGEX = r"((import)|(from)) *([a-z,A-Z,0-9]+)[\. \n]*"
+
+
 class TaskDef:
     """Information for a task set that is common among all tasks."""
     def __init__(self, source_file, other_files, function):
