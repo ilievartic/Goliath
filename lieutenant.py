@@ -5,6 +5,7 @@ import asyncio
 import queue
 import os
 import random
+import shutil
 
 class Lieutenant:
 
@@ -36,6 +37,7 @@ class Lieutenant:
 
     def configureClientFolder(self, task_def, client_id):
         """Creates a client directory and writes all of the required files to that directory."""
+        shutil.rmtree(str(client_id), ignore_errors=True)
         os.mkdir(str(client_id))
         file_dict = task_def[1]
         directory_prefix = str(client_id) + "/"
@@ -49,9 +51,9 @@ class Lieutenant:
 
     def serveStatusRequest(self, request):
         """Generates a response for a status request."""
-        return [STATUS_TOKEN, buildParameter(WORKERCOUNT_PARAM, self.num_workers), buildParameter(QUEUESIZE_PARAM, len(self.task_queue)), REPLY_STOP]
+        return [STATUS_TOKEN, buildParameter(WORKERCOUNT_PARAM, self.num_workers), buildParameter(QUEUESIZE_PARAM, len(self.task_list)), REPLY_STOP]
 
-    def serveTasksetRequest(self, request, client_id):
+    async def serveTasksetRequest(self, request, client_id):
         """Sets up the task queue to handle the taskset request and returns None, or returns a response if unable to do so."""
 
         # Extract expected parameters from the request
@@ -73,14 +75,16 @@ class Lieutenant:
 
         # Configure client 'env' and remove the files from the task def
         task_def = unpack(task_def_pack)
-        self.configureClientFolder(task_def)
-        task_def[1] = None
+        self.configureClientFolder(task_def, client_id)
+        task_def = (task_def[0], None, task_def[2])
         task_def_pack = pack(task_def)
         
         # Add all provided tasks to the queue
         for task in task_list:
-            self.task_queue.put((client_id, task_def_pack, task))
+            self.task_list.append((client_id, task_def_pack, task))
+        await self.task_condition.acquire()
         self.task_condition.notify_all()
+        self.task_condition.release()
 
         # Configure variables that will be used to manage monitor the progress of this request
         self.num_tasks[client_id] = len(task_list)
@@ -98,6 +102,7 @@ class Lieutenant:
         # Add data for this new client (after choosing a new client ID)
         client_id = len(self.clients)
         self.results[client_id] = []
+        self.num_tasks[client_id] = float('inf')
         self.clients[client_id] = (reader, writer)
         
         # Request loop
@@ -113,7 +118,7 @@ class Lieutenant:
                 if (request[0] == STATUS_TOKEN):
                     response = self.serveStatusRequest(request)
                 elif (request[0] == TASKSET_TOKEN):
-                    response = self.serveTasksetRequest(request, client_id)
+                    response = await self.serveTasksetRequest(request, client_id)
                 elif (request[0] == CLOSE_TOKEN):
                     # The commander wants to close the connection; we acknowledge
                     response = self.serveCloseRequest(request)
@@ -136,7 +141,7 @@ class Lieutenant:
                 # serveTasksetRequest only returns a response when there was a problem
                 # (we should send it now, since there is no action queued to reply later)
                 response_string = buildMessage(response)
-                writer.write(response_string)
+                writer.write(response_string.encode('utf-8'))
                 await writer.drain()
 
     async def loadTaskDef(self, worker, task_def_pack, client_id):
@@ -145,7 +150,7 @@ class Lieutenant:
         # Send setup request to worker
         task_str_arr = [SETUP_TOKEN, buildParameter(TASKDEF_PARAM, task_def_pack), buildParameter(CLIENTID_PARAM, pack(client_id)), REQUEST_STOP]
         task_str = buildMessage(task_str_arr)
-        worker.stdin.write(task_str)
+        worker.stdin.write(task_str.encode('utf-8'))
         await worker.stdin.drain()
 
         var_string = None
@@ -164,7 +169,7 @@ class Lieutenant:
         # Send task to worker
         task_str_arr = [WORK_TOKEN, buildParameter(TASK_PARAM, pack(task)), buildParameter(CLIENTID_PARAM, pack(client_id)), REQUEST_STOP]
         task_str = buildMessage(task_str_arr)
-        worker.stdin.write(task_str)
+        worker.stdin.write(task_str.encode('utf-8'))
         await worker.stdin.drain()
 
         # Read response from worker
@@ -199,6 +204,8 @@ class Lieutenant:
             if (len(self.task_list) == 0):
                 await self.task_condition.acquire()
                 await self.task_condition.wait()
+                if (len(self.task_list) == 0):
+                    continue
                 client_id, task_def_pack, task = self.task_list.pop()
                 self.task_condition.release()
             else:
@@ -221,13 +228,13 @@ class Lieutenant:
         """Continuously check if a client's work has been completed. If it has, send a response."""
         while True:
             for client_id in self.clients.keys():
-                if len(self.results[client_id] == self.num_tasks[client_id]):
+                if len(self.results[client_id]) == self.num_tasks[client_id]:
                     # Build the response string
                     response_str = buildMessage([TASKSET_TOKEN, buildParameter(RESULTLIST_PARAM, pack(self.results[client_id])), REPLY_STOP])
                     reader, writer = self.clients[client_id]
 
                     # Send the response
-                    writer.write(response_str)
+                    writer.write(response_str.encode('utf-8'))
                     await writer.drain()
 
                     # Wake up the callback in charge of handling this request

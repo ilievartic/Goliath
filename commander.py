@@ -77,6 +77,8 @@ class Commander:
 
     async def distributeTasksets(self, task_def_pack, args_pack):
         """Given the packed generic task definition, compute the distribution of tasks among lieutenants and send those tasks."""
+        await self.connect(self.lieutenants)
+        
         worker_counts, queue_sizes = await self.pollLieutenantStatuses()
         num_workers = sum(worker_counts.values())
         num_tasks = len(args_pack)
@@ -93,7 +95,7 @@ class Commander:
                 num_tasks -= proportional_contribution[l_id]
         
         for l_id, num_tasks in contributions.items():
-            self.sendTasksToLieutenant(l_id, task_def_pack, args_pack[:num_tasks])
+            await self.sendTasksToLieutenant(l_id, task_def_pack, args_pack[:num_tasks])
             args_pack = args_pack[num_tasks:]
 
         # Sort the list of tuples by the first tuple element, which in this case is the task ID
@@ -108,13 +110,22 @@ class Commander:
         args: a list of dictionaries. Each dictionary is associated with the parameters of a different task. Each K-V entry in the dictionary represents a named parameter and value example: [ { 'foo': 100, 'bar': 200 } ]
         filenames: a list of necessary files to include, with the source file first
         """
-        return asyncio.run(self.asyncRun(function, args, filenames))
-        
-    async def asyncRun(self, function, args, filenames):
-        await self.connect(self.lieutenants)
         file_contents = {}
         for filename in filenames:
             with open(filename, 'rb') as f:
                 file_contents[filename] = f.read()
         task_def = (filenames[0], file_contents, function)
-        return await self.distributeTasksets(pack(task_def), pack(args))
+        result = asyncio.run(self.distributeTasksets(pack(task_def), pack(args)))
+        return result
+        # asyncio.run(self.distributeTasksets(pack(task_def), pack(args)))
+        
+    # async def asyncRun(self, function, args, filenames):
+    #     file_contents = {}
+    #     for filename in filenames:
+    #         with open(filename, 'rb') as f:
+    #             file_contents[filename] = f.read()
+    #     task_def = (filenames[0], file_contents, function)
+    #     result = await self.distributeTasksets(pack(task_def), pack(args))
+    #     # print(result)
+    #     # return result
+    #     return None
