@@ -1,8 +1,10 @@
 # goliath
 
+### Authors
+Manikandan Swaminathan, Logan Pulley, Deepan Venkatesh, Ilie Vartic, Zachary Oldham
+
 ### Abstract
 This package enables python coders to build "multi-threaded" programs and optimize their data processing.
-authors: Mani, Logan, Deepan, Ilie, Zachary
 
 ### Details
 
