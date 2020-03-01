@@ -16,12 +16,12 @@ import pip
 
 class Lieutenant:
 
-    def __init__(self, hostname, port, num_workers=max(os.cpu_count() - 2, 1)):
+    def __init__(self, hostname, port, num_workers=None):
         self.hostname = hostname 
         self.port = port
 
         """Counts the number of running workers under this lieutenant."""
-        self.num_workers = num_workers
+        self.num_workers = num_workers if num_workers is not None else max(os.cpu_count() - 2, 1)
 
         """Contains all seen clients like { int(client_id): (asyncio.StreamReader(reader), asyncio.StreamWriter(writer)), ... }."""
         self.clients = {}
@@ -314,8 +314,16 @@ class Lieutenant:
 
             await asyncio.sleep(0)
 
+    def close(self):
+        loop = asyncio.get_event_loop()
+        loop.stop()
+        while loop.is_running():
+            pass
+        loop.close()
+
     async def start(self):
         """Start the server and the workers."""
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.close)
         # Spin up the workers
         self.task_condition = asyncio.Condition()
         await self.startWorkers()
@@ -324,15 +332,13 @@ class Lieutenant:
         # Start listening for commander requests
         server = await asyncio.start_server(self.commanderCallback, self.hostname, self.port, start_serving=False)
 
-        addr = server.sockets[0].getsockname()
-        print(f'Serving on {addr}')
 
         async with server:
             await server.serve_forever()
 
 if __name__ == "__main__":
     """Send a hostname, port, and worker count, and run a lieutenant."""
-    if (len(sys.argv) < 4):
-        print("Usage: python3 lieutenant.py <hostname> <port> <num_workers>")
+    if (len(sys.argv) < 3):
+        print("Usage: python3 lieutenant.py <hostname> <port> [num_workers]")
         exit(1)
-    lieutenant = Lieutenant(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]))
+    Lieutenant(sys.argv[1], int(sys.argv[2]), int(sys.argv[3]) if len(sys.argv) >= 3 else None)
