@@ -1,8 +1,8 @@
 Metadata-Version: 2.1
 Name: goliath
-Version: 0.1
-Summary: AAA
-Home-page: https://github.com/ilievartic/Goliath
+Version: 0.1.1
+Summary: This package enables python coders to build "multi-threaded" programs and optimize their data processing.
+Home-page: https://github.com/ilievartic/Goliath/archive/0.1.tar.gz
 Author: Ilie Vartic
 Author-email: ilie.vartic@gmail.com
 License: UNKNOWN
