@@ -76,7 +76,7 @@ class Lieutenant:
 
     # This function from https://stackoverflow.com/questions/12332975/installing-python-module-within-code
     def installPackage(self, package):
-        subprocess.check_call([sys.executable, "-m", "pip", "-qqq", "install", package], stdout=subprocess.DEVNULL)
+        subprocess.call([sys.executable, "-m", "pip", "-qqq", "install", package], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def configureClientFolder(self, task_def, client_id):
         """Creates a client directory and writes all of the required files to that directory."""
@@ -200,6 +200,7 @@ class Lieutenant:
             if (stop):
                 writer.close()
                 await writer.wait_closed()
+                shutil.rmtree(str(client_id), ignore_errors=True)
                 return
 
     async def loadTaskDef(self, worker, task_def_pack, client_id):
