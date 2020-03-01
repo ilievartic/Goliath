@@ -64,7 +64,7 @@ class Worker:
         tid, args = task
         result = self.functions[client_id](**args)
 
-        response = [WORK_TOKEN, buildParameter(RESULT_PARAM, pack(result))]
+        response = [WORK_TOKEN, buildParameter(RESULT_PARAM, pack(result)), REPLY_STOP]
         return response
 
     async def taskExecutionLoop(self):

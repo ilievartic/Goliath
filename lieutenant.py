@@ -47,6 +47,7 @@ class Lieutenant:
 
     def serveBadRequest(self, request):
         """Generates a response for a malformed request."""
+        # print(request)
         return [request[0], "!"]
 
     def serveStatusRequest(self, request):
@@ -153,11 +154,14 @@ class Lieutenant:
         worker.stdin.write(task_str.encode('utf-8'))
         await worker.stdin.drain()
 
+        # print('waiting....')
         var_string = None
         while (True):
             var_string = (await worker.stdout.readline()).decode('utf-8').strip()
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
+            else:
+                break
         response = parseMessage(var_string)
 
         if (response[0] != SETUP_TOKEN or response[-1] != REPLY_STOP):
@@ -166,20 +170,25 @@ class Lieutenant:
     async def execTask(self, worker, task, client_id):
         """Execute a task on the worker using an environment specified by client_id. Add the result to that clients' results list."""
 
+        # print('sending')
         # Send task to worker
         task_str_arr = [WORK_TOKEN, buildParameter(TASK_PARAM, pack(task)), buildParameter(CLIENTID_PARAM, pack(client_id)), REQUEST_STOP]
         task_str = buildMessage(task_str_arr)
         worker.stdin.write(task_str.encode('utf-8'))
         await worker.stdin.drain()
 
+        # print('waiting')
         # Read response from worker
         var_string = None
         while True:
             var_string = (await worker.stdout.readline()).decode('utf-8').strip()
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
+            else:
+                break
         response = parseMessage(var_string)
         if (response[0] != WORK_TOKEN or response[-1] != REPLY_STOP):
+            # print(response)
             raise BadReplyException("Worker response has the wrong format")
         
         result = None
@@ -192,12 +201,13 @@ class Lieutenant:
             raise NoWorkerResult("Worker has no result")
         
         task_id = task[0]
-        self.results[client_id].append((task_id, result))
+        print(unpack(result))
+        self.results[client_id].append((task_id, unpack(result)))
 
     async def runWorker(self):
         worker = await asyncio.create_subprocess_shell("python3 worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
         loaded_task_defs = []
-        print(worker)
+        # print(worker)
         while True:
             # Pull a task off the queue
             client_id, task_def_pack, task = (None, None, None)
@@ -206,17 +216,21 @@ class Lieutenant:
                 await self.task_condition.wait()
                 if (len(self.task_list) == 0):
                     continue
+
                 client_id, task_def_pack, task = self.task_list.pop()
                 self.task_condition.release()
             else:
                 client_id, task_def_pack, task = self.task_list.pop()
 
+            # print('has task')
             # Ensure the environment for the task has been loaded
             if task_def_pack not in loaded_task_defs:
                 await self.loadTaskDef(worker, task_def_pack, client_id)
                 loaded_task_defs.append(task_def_pack)
             
+            # print('starting task')
             # Execute the task and put its result in the client's list
+            # print(task)
             await self.execTask(worker, task, client_id)
 
     async def startWorkers(self):

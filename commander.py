@@ -58,12 +58,15 @@ class Commander:
     async def readLieutenantResponse(self, lieutenant_id):
         reader, writer = self.lieutenants[lieutenant_id]
         response = parseMessage((await reader.readline()).decode('utf-8').strip())
+        results = None
         if response[-1] == REPLY_STOP:
             if response[0] == TASKSET_TOKEN:
                 for param in response[1:-1]:
                     key, value = parseParameter(param)
                     if key == RESULTLIST_PARAM:
-                        results[lieutenant_id] = unpack(value)
+                        results = unpack(value)
+                        # print("INTERMEDIATE")
+                        # print(results)
                     else:
                         # TODO: Unexpected parameter
                         pass
@@ -73,15 +76,19 @@ class Commander:
         else:
             # TODO: Unexpected stop character (only expected a reply)
             pass
-        return response
+        return results
 
-    async def distributeTasksets(self, task_def_pack, args_pack):
+    async def distributeTasksets(self, task_def_pack, args):
         """Given the packed generic task definition, compute the distribution of tasks among lieutenants and send those tasks."""
         await self.connect(self.lieutenants)
-        
+        new_args = []
+        for i in range(0, len(args)):
+            new_args.append((i, args[i]))
+        args = new_args
+
         worker_counts, queue_sizes = await self.pollLieutenantStatuses()
         num_workers = sum(worker_counts.values())
-        num_tasks = len(args_pack)
+        num_tasks = len(args)
         contributions = {}
         # Calculate a proportional number of tasks for each lieutenant
         proportional_contribution = dict([(l, int(worker_counts[l] / num_workers * num_tasks)) for l in self.lieutenants])
@@ -95,12 +102,17 @@ class Commander:
                 num_tasks -= proportional_contribution[l_id]
         
         for l_id, num_tasks in contributions.items():
-            await self.sendTasksToLieutenant(l_id, task_def_pack, args_pack[:num_tasks])
-            args_pack = args_pack[num_tasks:]
+            await self.sendTasksToLieutenant(l_id, task_def_pack, pack(args[:num_tasks]))
+            args = args[num_tasks:]
 
         # Sort the list of tuples by the first tuple element, which in this case is the task ID
         results = sorted([await self.readLieutenantResponse(l) for l in self.lieutenants])
-        return [item[1:] for item in results] if results else []
+        # print(results)
+        actual_results = []
+        for result_set in results:
+            actual_results.extend(result_set)
+        actual_results.sort()
+        return [item[1] for item in actual_results] if results else []
         
     def run(self, function, args, filenames):
         """
@@ -115,7 +127,7 @@ class Commander:
             with open(filename, 'rb') as f:
                 file_contents[filename] = f.read()
         task_def = (filenames[0], file_contents, function)
-        result = asyncio.run(self.distributeTasksets(pack(task_def), pack(args)))
+        result = asyncio.run(self.distributeTasksets(pack(task_def), args))
         return result
         # asyncio.run(self.distributeTasksets(pack(task_def), pack(args)))
         
