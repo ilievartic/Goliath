@@ -4,9 +4,10 @@ import sys
 import asyncio
 import queue
 import os
-
+import random
 
 class Lieutenant:
+
     def __init__(self, hostname, port, num_workers=max(os.cpu_count() - 2, 1)):
         self.hostname = hostname 
         self.port = port
@@ -27,7 +28,9 @@ class Lieutenant:
         self.client_done_cond = {}
 
         """Contains all tasks yet to be completed by this lieutenant."""
-        self.task_queue = queue.Queue()
+        self.task_list = []
+
+        self.task_condition = None
 
         asyncio.run(self.start())
 
@@ -77,6 +80,7 @@ class Lieutenant:
         # Add all provided tasks to the queue
         for task in task_list:
             self.task_queue.put((client_id, task_def_pack, task))
+        self.task_condition.notify_all()
 
         # Configure variables that will be used to manage monitor the progress of this request
         self.num_tasks[client_id] = len(task_list)
@@ -186,14 +190,19 @@ class Lieutenant:
         self.results[client_id].append((task_id, result))
 
     async def runWorker(self):
-        """Feed a worker tasks from the queue and set up an environment if needed."""
-        print('b')
         worker = await asyncio.create_subprocess_shell("python3 worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
-        print('asdf')
         loaded_task_defs = []
+        print(worker)
         while True:
             # Pull a task off the queue
-            client_id, task_def_pack, task = await self.task_queue.get()
+            client_id, task_def_pack, task = (None, None, None)
+            if (len(self.task_list) == 0):
+                await self.task_condition.acquire()
+                await self.task_condition.wait()
+                client_id, task_def_pack, task = self.task_list.pop()
+                self.task_condition.release()
+            else:
+                client_id, task_def_pack, task = self.task_list.pop()
 
             # Ensure the environment for the task has been loaded
             if task_def_pack not in loaded_task_defs:
@@ -205,10 +214,8 @@ class Lieutenant:
 
     async def startWorkers(self):
         """Spin up all of the worker processes and start tasks to feed tasks to the workers."""
-        worker_task = []
         for _ in range(self.num_workers):
-            worker_task.append(self.runWorker())
-        asyncio.gather(*worker_task)
+            asyncio.create_task(self.runWorker())
 
     async def responseLoop(self):
         """Continuously check if a client's work has been completed. If it has, send a response."""
@@ -233,10 +240,10 @@ class Lieutenant:
     async def start(self):
         """Start the server and the workers."""
         # Spin up the workers
+        self.task_condition = asyncio.Condition()
         await self.startWorkers()
         asyncio.create_task(self.responseLoop())
 
-        print('asdf')
         # Start listening for commander requests
         server = await asyncio.start_server(self.commanderCallback, self.hostname, self.port, start_serving=False)
 
