@@ -100,7 +100,6 @@ class Lieutenant:
 
     async def commanderCallback(self, reader, writer):
         """Determine what to do when a commander connects to this lieutenant."""
-
         # Add data for this new client (after choosing a new client ID)
         client_id = len(self.clients)
         self.results[client_id] = []
@@ -219,6 +218,7 @@ class Lieutenant:
                 await self.task_condition.acquire()
                 await self.task_condition.wait()
                 if (len(self.task_list) == 0):
+                    self.task_condition.release()
                     continue
 
                 client_id, task_def_pack, task = self.task_list.pop()
