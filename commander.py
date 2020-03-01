@@ -8,7 +8,8 @@ class Commander:
         """Initializes object."""
 
         """Contains all lieutenants like { int(lieutenant_id): (asyncio.StreamReader(reader), asyncio.StreamWriter(writer)), ... }."""
-        self.lieutenants = lieutenants
+        self.lieutenants_data = lieutenants
+        self.lieutenants = None
     
     async def connect(self, lieutenants):
         connections = [await asyncio.open_connection(host, port) for host, port in lieutenants]
@@ -19,7 +20,6 @@ class Commander:
         """Poll each of the lieutenants to determine their status."""
         worker_counts = {}
         queue_sizes = {}
-        # print(self.lieutenants)
         for lieutenant_id, (reader, writer) in self.lieutenants.items():
             writer.write(buildMessage([STATUS_TOKEN, REQUEST_STOP]).encode('utf-8'))
             await writer.drain()
@@ -65,8 +65,6 @@ class Commander:
                     key, value = parseParameter(param)
                     if key == RESULTLIST_PARAM:
                         results = unpack(value)
-                        # print("INTERMEDIATE")
-                        # print(results)
                     else:
                         # TODO: Unexpected parameter
                         pass
@@ -80,7 +78,7 @@ class Commander:
 
     async def distributeTasksets(self, task_def_pack, args):
         """Given the packed generic task definition, compute the distribution of tasks among lieutenants and send those tasks."""
-        await self.connect(self.lieutenants)
+        await self.connect(self.lieutenants_data)
         new_args = []
         for i in range(0, len(args)):
             new_args.append((i, args[i]))
@@ -107,11 +105,18 @@ class Commander:
 
         # Sort the list of tuples by the first tuple element, which in this case is the task ID
         results = sorted([await self.readLieutenantResponse(l) for l in self.lieutenants])
-        # print(results)
         actual_results = []
         for result_set in results:
             actual_results.extend(result_set)
         actual_results.sort()
+        for lieutenant_id in self.lieutenants:
+            reader, writer = self.lieutenants[lieutenant_id]
+            message = buildMessage([CLOSE_TOKEN, REQUEST_STOP])
+            writer.write(message.encode('utf-8'))
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+            self.lieutenants = None
         return [item[1] for item in actual_results] if results else []
         
     def run(self, function, args, filenames):
@@ -129,15 +134,3 @@ class Commander:
         task_def = (filenames[0], file_contents, function)
         result = asyncio.run(self.distributeTasksets(pack(task_def), args))
         return result
-        # asyncio.run(self.distributeTasksets(pack(task_def), pack(args)))
-        
-    # async def asyncRun(self, function, args, filenames):
-    #     file_contents = {}
-    #     for filename in filenames:
-    #         with open(filename, 'rb') as f:
-    #             file_contents[filename] = f.read()
-    #     task_def = (filenames[0], file_contents, function)
-    #     result = await self.distributeTasksets(pack(task_def), pack(args))
-    #     # print(result)
-    #     # return result
-    #     return None

@@ -6,6 +6,8 @@ import queue
 import os
 import random
 import shutil
+import signal
+import time
 
 class Lieutenant:
 
@@ -47,7 +49,6 @@ class Lieutenant:
 
     def serveBadRequest(self, request):
         """Generates a response for a malformed request."""
-        # print(request)
         return [request[0], "!"]
 
     def serveStatusRequest(self, request):
@@ -56,7 +57,6 @@ class Lieutenant:
 
     async def serveTasksetRequest(self, request, client_id):
         """Sets up the task queue to handle the taskset request and returns None, or returns a response if unable to do so."""
-
         # Extract expected parameters from the request
         task_def_pack = None
         task_list = None
@@ -89,7 +89,8 @@ class Lieutenant:
 
         # Configure variables that will be used to manage monitor the progress of this request
         self.num_tasks[client_id] = len(task_list)
-        self.client_done_cond[client_id] = asyncio.Condition()
+        if (client_id not in self.client_done_cond.keys()):
+            self.client_done_cond[client_id] = asyncio.Condition()
 
         return None
 
@@ -108,9 +109,11 @@ class Lieutenant:
         
         # Request loop
         while True:
+            stop = False
             # Read request from the client
             var_string = (await reader.readline()).decode('utf-8').strip()
             if (var_string is None or var_string == "" or len(var_string) == 0):
+                # time.sleep(2)
                 continue
             request = parseMessage(var_string)
             response = None
@@ -122,6 +125,7 @@ class Lieutenant:
                     response = await self.serveTasksetRequest(request, client_id)
                 elif (request[0] == CLOSE_TOKEN):
                     # The commander wants to close the connection; we acknowledge
+                    stop = True
                     response = self.serveCloseRequest(request)
                 else:
                     # We didn't see a request token that we recognized, 
@@ -145,6 +149,11 @@ class Lieutenant:
                 writer.write(response_string.encode('utf-8'))
                 await writer.drain()
 
+            if (stop):
+                writer.close()
+                await writer.wait_closed()
+                return
+
     async def loadTaskDef(self, worker, task_def_pack, client_id):
         """Send a request to set up the proper environment to a worker."""
 
@@ -154,7 +163,6 @@ class Lieutenant:
         worker.stdin.write(task_str.encode('utf-8'))
         await worker.stdin.drain()
 
-        # print('waiting....')
         var_string = None
         while (True):
             var_string = (await worker.stdout.readline()).decode('utf-8').strip()
@@ -170,14 +178,13 @@ class Lieutenant:
     async def execTask(self, worker, task, client_id):
         """Execute a task on the worker using an environment specified by client_id. Add the result to that clients' results list."""
 
-        # print('sending')
         # Send task to worker
         task_str_arr = [WORK_TOKEN, buildParameter(TASK_PARAM, pack(task)), buildParameter(CLIENTID_PARAM, pack(client_id)), REQUEST_STOP]
         task_str = buildMessage(task_str_arr)
         worker.stdin.write(task_str.encode('utf-8'))
         await worker.stdin.drain()
 
-        # print('waiting')
+        worker.send_signal(signal.SIGINT)
         # Read response from worker
         var_string = None
         while True:
@@ -188,7 +195,6 @@ class Lieutenant:
                 break
         response = parseMessage(var_string)
         if (response[0] != WORK_TOKEN or response[-1] != REPLY_STOP):
-            # print(response)
             raise BadReplyException("Worker response has the wrong format")
         
         result = None
@@ -201,13 +207,11 @@ class Lieutenant:
             raise NoWorkerResult("Worker has no result")
         
         task_id = task[0]
-        print(unpack(result))
         self.results[client_id].append((task_id, unpack(result)))
 
     async def runWorker(self):
         worker = await asyncio.create_subprocess_shell("python3 worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
         loaded_task_defs = []
-        # print(worker)
         while True:
             # Pull a task off the queue
             client_id, task_def_pack, task = (None, None, None)
@@ -222,15 +226,12 @@ class Lieutenant:
             else:
                 client_id, task_def_pack, task = self.task_list.pop()
 
-            # print('has task')
             # Ensure the environment for the task has been loaded
-            if task_def_pack not in loaded_task_defs:
+            if (task_def_pack, client_id) not in loaded_task_defs:
                 await self.loadTaskDef(worker, task_def_pack, client_id)
-                loaded_task_defs.append(task_def_pack)
+                loaded_task_defs.append((task_def_pack, client_id))
             
-            # print('starting task')
             # Execute the task and put its result in the client's list
-            # print(task)
             await self.execTask(worker, task, client_id)
 
     async def startWorkers(self):
@@ -250,6 +251,11 @@ class Lieutenant:
                     # Send the response
                     writer.write(response_str.encode('utf-8'))
                     await writer.drain()
+
+                    # Do some cleanup
+                    self.results[client_id] = []
+                    self.num_tasks[client_id] = -1
+                    # del self.task_condition[client_id]
 
                     # Wake up the callback in charge of handling this request
                     await self.client_done_cond[client_id].acquire()
