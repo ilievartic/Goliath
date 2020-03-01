@@ -76,10 +76,7 @@ class Lieutenant:
 
     # This function from https://stackoverflow.com/questions/12332975/installing-python-module-within-code
     def installPackage(self, package):
-        if hasattr(pip, 'main'):
-            pip.main(['install', package])
-        else:
-            pip._internal.main(['install', package])
+        subprocess.check_call([sys.executable, "-m", "pip", "-qqq", "install", package], stdout=subprocess.DEVNULL)
 
     def configureClientFolder(self, task_def, client_id):
         """Creates a client directory and writes all of the required files to that directory."""
