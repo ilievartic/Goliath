@@ -185,8 +185,11 @@ class Lieutenant:
         task_id = task[0]
         self.results[client_id].append((task_id, result))
 
-    async def runWorker(self, worker):
+    async def runWorker(self):
         """Feed a worker tasks from the queue and set up an environment if needed."""
+        print('b')
+        worker = await asyncio.create_subprocess_shell("python3 worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+        print('asdf')
         loaded_task_defs = []
         while True:
             # Pull a task off the queue
@@ -202,11 +205,10 @@ class Lieutenant:
 
     async def startWorkers(self):
         """Spin up all of the worker processes and start tasks to feed tasks to the workers."""
+        worker_task = []
         for _ in range(self.num_workers):
-            worker = await asyncio.create_subprocess_shell("python3.8 worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
-            print('asdf')
-            asyncio.create_task(self.runWorker(worker))
-            print('asdf')
+            worker_task.append(self.runWorker())
+        asyncio.gather(*worker_task)
 
     async def responseLoop(self):
         """Continuously check if a client's work has been completed. If it has, send a response."""
