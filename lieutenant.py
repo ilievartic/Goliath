@@ -71,7 +71,7 @@ class Lieutenant:
                 return self.serveBadRequest(request)
         
         if not task_def_pack or not task_list:
-            return self.serveBadRequest(request, client_id)
+            return self.serveBadRequest(request)
 
         # Configure client 'env' and remove the files from the task def
         task_def = unpack(task_def_pack)
