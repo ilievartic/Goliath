@@ -3,6 +3,12 @@ import asyncio
 import time
 import sys
 
+#TODO: Commander sending requests in batches instead of splitting all at once
+#TODO: Worker Recycling
+#TODO: Stoping on Commander
+#TODO: Static and Dynamic Argument Dictionaries
+#TODO: Local Support
+
 class Commander:
     def __init__(self, lieutenants=None):
         """Initializes object."""
