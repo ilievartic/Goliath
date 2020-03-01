@@ -1,1 +1,8 @@
-# HackIllinois2020
+# Potential Names:
+HydraPower
+HyThread
+ProcHelper
+CerberThread
+MILDZ
+FastComp
+MultiProc
