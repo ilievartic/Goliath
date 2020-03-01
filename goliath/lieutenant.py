@@ -311,11 +311,9 @@ class Lieutenant:
                     response_str = buildMessage([TASKSET_TOKEN, buildParameter(RESULTLIST_PARAM, pack(self.results[client_id])), REPLY_STOP])
                     reader, writer = self.clients[client_id]
 
-                    print('sending response')
                     # Send the response
                     writer.write(response_str.encode('utf-8'))
                     await writer.drain()
-                    print('drained')
 
                     # Do some cleanup
                     self.results[client_id] = []

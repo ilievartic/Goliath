@@ -88,7 +88,6 @@ class Worker:
             else:
                 response = self.serveBadRequest(request)
             response_string = buildMessage(response)
-            # print(response_string)
             self.writer.write(response_string.encode('utf-8'))
             await self.writer.drain()
 

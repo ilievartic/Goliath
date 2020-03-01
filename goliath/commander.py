@@ -30,7 +30,6 @@ class Commander:
             writer.write(buildMessage([STATUS_TOKEN, REQUEST_STOP]).encode('utf-8'))
             await writer.drain()
             response = parseMessage(await readlineInfinite(reader))
-            print('c33')
             if response[-1] == REPLY_STOP:
                 if response[0] == STATUS_TOKEN:
                     for param in response[1:-1]:
@@ -63,11 +62,8 @@ class Commander:
         await writer.drain()
 
     async def readLieutenantResponse(self, lieutenant_id):
-        print('tryna get a response')
         reader, writer = self.lieutenants[lieutenant_id]
-        # print(reader)
         response = parseMessage(await readlineInfinite(reader))
-        print('c68')
         results = None
         if response[-1] == REPLY_STOP:
             if response[0] == TASKSET_TOKEN:
@@ -114,7 +110,6 @@ class Commander:
             args = args[num_tasks:]
 
         # Sort the list of tuples by the first tuple element, which in this case is the task ID
-        print(self.lieutenants)
         results = sorted([await self.readLieutenantResponse(l) for l in self.lieutenants])
         actual_results = []
         for result_set in results:
