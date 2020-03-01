@@ -1,5 +1,5 @@
-from utils import *
-from exceptions import *
+from goliath.utils import *
+from goliath.exceptions import *
 import sys
 import asyncio
 import queue
@@ -99,13 +99,10 @@ class Lieutenant:
         installed.extend(sys.builtin_module_names)
         installed.extend([x.name for x in pkgutil.iter_modules()])
         imports = None
-        # print('a')
         with open(directory_prefix + task_def[0], "r") as src:
             imports = "\n".join([line for line in src.readlines() if 'import' in line])
-        # print('b')
         for package in finder.modules:
             if package not in installed and package in imports:
-                print("Attempting to install " + package)
                 self.installPackage(package)
 
     def serveBadRequest(self, request):
@@ -173,7 +170,6 @@ class Lieutenant:
             # Read request from the client
             var_string = (await reader.readline()).decode('utf-8').strip()
             if (var_string is None or var_string == "" or len(var_string) == 0):
-                # time.sleep(2)
                 continue
             request = parseMessage(var_string)
             response = None
@@ -271,7 +267,7 @@ class Lieutenant:
         self.results[client_id].append((task_id, unpack(result)))
 
     async def runWorker(self):
-        worker = await asyncio.create_subprocess_shell(sys.executable + " worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+        worker = await asyncio.create_subprocess_shell(sys.executable + " -m goliath.worker", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
         loaded_task_defs = []
         while not self.closing:
             # Pull a task off the queue
