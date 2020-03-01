@@ -12,7 +12,7 @@ This package enables Python to offload sets of function calls to pools of remote
 
 When handling large sets of data, the thread-pool model can often do wonders for parallelizing and thus speeding up a program. However, Python's native support for concurrency is more like _polling_ than _threading_; it doesn't properly take advantage of multiple CPU cores. This can be frustrating when working in Python with a task that would be easily threadable in other languages.
 
-Goliath enables Python to distribute function calls over a set of servers. This essentially simulates the thread-pool model as a pool of servers, each maintaining a pool of Python worker processes. Additionally, these servers can be reached over the Internet, enabling a many-to-many relationship between clients requesting work and servers providing workers; each client can have work distributed across multiple servers, and each server can handle work from multiple clients.
+Goliath enables Python to distribute a set of function calls over a set of servers. This essentially simulates the thread-pool model as a pool of servers, each maintaining a pool of Python worker processes. Additionally, these servers can be reached over the Internet, enabling a many-to-many relationship between clients requesting work and servers providing workers; each client can have work distributed across multiple servers, and each server can handle work from multiple clients.
 
 Goliath abstracts this entire model and aggregates the results from the servers, finally returning the list of results to the coder.
 
