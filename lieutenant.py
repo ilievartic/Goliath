@@ -200,11 +200,13 @@ class Lieutenant:
             # Execute the task and put its result in the client's list
             await self.execTask(worker, task, client_id)
 
-    def startWorkers(self):
+    async def startWorkers(self):
         """Spin up all of the worker processes and start tasks to feed tasks to the workers."""
         for _ in range(self.num_workers):
-            worker = asyncio.create_subprocess_exec(program="python3", args=["worker.py"], stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+            worker = await asyncio.create_subprocess_shell("python3.8 worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+            print('asdf')
             asyncio.create_task(self.runWorker(worker))
+            print('asdf')
 
     async def responseLoop(self):
         """Continuously check if a client's work has been completed. If it has, send a response."""
@@ -229,11 +231,15 @@ class Lieutenant:
     async def start(self):
         """Start the server and the workers."""
         # Spin up the workers
-        self.startWorkers()
+        await self.startWorkers()
         asyncio.create_task(self.responseLoop())
 
+        print('asdf')
         # Start listening for commander requests
-        server = await asyncio.start_server(self.commanderCallback, self.hostname, self.port)
+        server = await asyncio.start_server(self.commanderCallback, self.hostname, self.port, start_serving=False)
+
+        addr = server.sockets[0].getsockname()
+        print(f'Serving on {addr}')
 
         async with server:
             await server.serve_forever()
