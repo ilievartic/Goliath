@@ -61,7 +61,7 @@ class Commander:
         if response[-1] == REPLY_STOP:
             if response[0] == TASKSET_TOKEN:
                 for param in response[1:-1]:
-                    key, value = parseParam(param)
+                    key, value = parseParameter(param)
                     if key == RESULTLIST_PARAM:
                         results[lieutenant_id] = unpack(value)
                     else:
