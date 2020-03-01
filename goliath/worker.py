@@ -1,4 +1,4 @@
-from utils import *
+from goliath.utils import *
 import sys
 import asyncio
 import os

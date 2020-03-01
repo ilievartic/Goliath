@@ -5,8 +5,8 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='goliath',  
-    version='0.1.3.2',
-    author="Ilie Vartic, Logan Pulley, Zach, Deepan Venkatesh, Mani",
+    version='0.1.3.4',
+    author="Ilie Vartic, Logan Pulley, Zach Oldham, Deepan Venkatesh, Manikandan Swaminathan",
     author_email="ilie.vartic@gmail.com",
     description="This package enables Python to offload sets of function calls to pools of remote worker processes.",
     long_description=long_description,

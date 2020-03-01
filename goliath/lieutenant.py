@@ -1,5 +1,5 @@
-from utils import *
-from exceptions import *
+from goliath.utils import *
+from goliath.exceptions import *
 import sys
 import asyncio
 import queue
@@ -259,7 +259,7 @@ class Lieutenant:
         self.results[client_id].append((task_id, unpack(result)))
 
     async def runWorker(self):
-        worker = await asyncio.create_subprocess_shell(sys.executable + " worker.py", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
+        worker = await asyncio.create_subprocess_shell(sys.executable + " -m goliath.worker", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
         loaded_task_defs = []
         while True:
             # Pull a task off the queue

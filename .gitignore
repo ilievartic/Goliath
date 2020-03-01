@@ -1,2 +1,7 @@
 **/__pycache__/
 **/.vscode/
+
+# PyPI temporary build and distribution folders
+build/
+dist/
+goliath.egg-info/
