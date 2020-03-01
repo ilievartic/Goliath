@@ -13,6 +13,8 @@ import subprocess
 import copy
 import pkg_resources
 import pip
+import modulefinder
+import pkgutil
 
 class Lieutenant:
 
@@ -88,12 +90,20 @@ class Lieutenant:
             with open(directory_prefix + filename, "wb") as f:
                 f.write(contents)
 
-        dependent_files = copy.deepcopy(list(task_def[1].keys()))
-        dependent_files.remove(task_def[0])
-        pip_packages = self.getPipDependencies(task_def[0], task_def[1].keys(), client_id)
+        finder = modulefinder.ModuleFinder()
+        finder.run_script(directory_prefix + task_def[0])
         installed = list({pkg.key for pkg in pkg_resources.working_set})
-        for package in pip_packages:
-            if package not in installed:
+        installed.append('commander')
+        installed.extend(sys.builtin_module_names)
+        installed.extend([x.name for x in pkgutil.iter_modules()])
+        imports = None
+        # print('a')
+        with open(directory_prefix + task_def[0], "r") as src:
+            imports = "\n".join([line for line in src.readlines() if 'import' in line])
+        # print('b')
+        for package in finder.modules:
+            if package not in installed and package in imports:
+                print("Attempting to install " + package)
                 self.installPackage(package)
 
     def serveBadRequest(self, request):

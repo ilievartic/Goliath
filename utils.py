@@ -24,8 +24,7 @@ REQUEST_STOP = "?"
 REPLY_STOP = "."
 ERROR_STOP = "!"
 
-IMPORT_REGEX = r"((import)|(from)) *([a-z,A-Z,0-9]+)[\. \n]*"
-
+IMPORT_REGEX = r"^((import)|(from)) *([a-z,A-Z,0-9,\-]+)"
 
 class TaskDef:
     """Information for a task set that is common among all tasks."""
