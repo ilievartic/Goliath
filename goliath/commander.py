@@ -29,7 +29,7 @@ class Commander:
         for lieutenant_id, (reader, writer) in self.lieutenants.items():
             writer.write(buildMessage([STATUS_TOKEN, REQUEST_STOP]).encode('utf-8'))
             await writer.drain()
-            response = parseMessage((await reader.readline()).decode('utf-8').strip())
+            response = parseMessage(readline_infinite(reader))
             if response[-1] == REPLY_STOP:
                 if response[0] == STATUS_TOKEN:
                     for param in response[1:-1]:
@@ -63,7 +63,7 @@ class Commander:
 
     async def readLieutenantResponse(self, lieutenant_id):
         reader, writer = self.lieutenants[lieutenant_id]
-        response = parseMessage((await reader.readline()).decode('utf-8').strip())
+        response = parseMessage(readline_infinite(reader))
         results = None
         if response[-1] == REPLY_STOP:
             if response[0] == TASKSET_TOKEN:

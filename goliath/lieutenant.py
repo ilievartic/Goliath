@@ -168,7 +168,7 @@ class Lieutenant:
         while True:
             stop = False
             # Read request from the client
-            var_string = (await reader.readline()).decode('utf-8').strip()
+            var_string = readline_infinite(reader)
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
             request = parseMessage(var_string)
@@ -222,7 +222,7 @@ class Lieutenant:
 
         var_string = None
         while (True):
-            var_string = (await worker.stdout.readline()).decode('utf-8').strip()
+            var_string = readline_infinite(worker.stdout)
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
             else:
@@ -245,7 +245,7 @@ class Lieutenant:
         # Read response from worker
         var_string = None
         while True:
-            var_string = (await worker.stdout.readline()).decode('utf-8').strip()
+            var_string = readline_infinite(worker.stdout)
             if (var_string is None or var_string == "" or len(var_string) == 0):
                 continue
             else:
