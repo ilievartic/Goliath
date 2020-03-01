@@ -1,7 +1,7 @@
 Metadata-Version: 2.1
 Name: goliath
-Version: 0.1.2.1
-Summary: This package enables Python to offload sets of function calls to pools of remote worker processes.
+Version: 0.1.2
+Summary: This package enables python coders to build "multi-threaded" programs and optimize their data processing.
 Home-page: https://github.com/ilievartic/Goliath/archive/v0.1.2.tar.gz
 Author: Ilie Vartic
 Author-email: ilie.vartic@gmail.com
