@@ -18,7 +18,7 @@ class Worker:
         self.conditional.notify_all()
         self.conditional.release()
 
-    def sigintHandler(self, asdf):
+    def sigintHandler(self):
         asyncio.create_task(self.wakeUp())
 
     def serveBadRequest(self, request):
@@ -105,7 +105,7 @@ class Worker:
             lambda: asyncio.streams.FlowControlMixin(loop=loop),
             os.fdopen(sys.stdout.fileno(), 'wb'))
         self.writer = asyncio.streams.StreamWriter(writer_transport, writer_protocol, None, loop)
-        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.sigintHandler, None)
+        asyncio.get_event_loop().add_signal_handler(signal.SIGINT, self.sigintHandler)
         await self.taskExecutionLoop()
 
 if __name__ == "__main__":
