@@ -40,6 +40,8 @@ class Lieutenant:
         """Contains all tasks yet to be completed by this lieutenant."""
         self.task_list = []
 
+        self.closing = False
+
         self.task_condition = None
 
         asyncio.run(self.start())
@@ -267,7 +269,7 @@ class Lieutenant:
     async def runWorker(self):
         worker = await asyncio.create_subprocess_shell(sys.executable + " -m goliath.worker", stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE)
         loaded_task_defs = []
-        while True:
+        while not self.closing:
             # Pull a task off the queue
             client_id, task_def_pack, task = (None, None, None)
             if (len(self.task_list) == 0):
@@ -289,6 +291,11 @@ class Lieutenant:
             
             # Execute the task and put its result in the client's list
             await self.execTask(worker, task, client_id)
+        
+        worker.stdout = subprocess.DEVNULL
+        worker.stderr = subprocess.DEVNULL
+        worker.send_signal(signal.SIGKILL)
+        self.num_workers -= 1
 
     async def startWorkers(self):
         """Spin up all of the worker processes and start tasks to feed tasks to the workers."""
@@ -320,12 +327,24 @@ class Lieutenant:
 
             await asyncio.sleep(0)
 
+    async def killWorkers(self):
+        for client_id in self.clients:
+            await self.client_done_cond[client_id].acquire()
+            self.client_done_cond[client_id].notify_all()
+            self.client_done_cond[client_id].release()
+        await self.task_condition.acquire()
+        self.task_condition.notify_all()
+        self.task_condition.release()
+
+        while (self.num_workers > 0):
+            await asyncio.sleep(1)
+        sys.stdin = None
+        sys.stderr = None
+        exit(1)
+
     def close(self):
-        loop = asyncio.get_event_loop()
-        loop.stop()
-        while loop.is_running():
-            pass
-        loop.close()
+        self.closing = True
+        asyncio.create_task(self.killWorkers())
 
     async def start(self):
         """Start the server and the workers."""
