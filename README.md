@@ -25,7 +25,7 @@ Then, in python script:
 The commander module contains the interface with which the programmer must interact. 
 
 Prerequisites:
-+ Python3
++ Python3.8
 
 ### Licensing
 
