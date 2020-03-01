@@ -18,7 +18,7 @@ class Commander:
         self.lieutenants = None
     
     async def connect(self, lieutenants):
-        connections = [await asyncio.open_connection(host, port) for host, port in lieutenants]
+        connections = [await asyncio.open_connection(host, port, limit=((30**2) * 20)) for host, port in lieutenants]
         ids = range(len(connections))
         self.lieutenants = dict(zip(ids, connections))
     
