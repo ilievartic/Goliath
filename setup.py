@@ -12,7 +12,7 @@ setuptools.setup(
     description="This package enables Python to offload sets of function calls to pools of remote worker processes.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/ilievartic/Goliath/archive/v0.1.2.1.tar.gz",
+    url="https://github.com/ilievartic/Goliath/archive/v0.1.2.tar.gz",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
