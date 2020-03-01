@@ -33,14 +33,14 @@ class Commander:
                         elif key == QUEUESIZE_PARAM:
                             queue_sizes[lieutenant_id] = int(value)
                         else:
-                            # TODO: Unexpected parameter
-                            pass
+                            # Unexpected parameter
+                            return -1,-1
                 else:
-                    # TODO: Unexpected token (only expected STATUS_TOKEN)
-                    pass
+                    # Unexpected token (only expected STATUS_TOKEN)
+                    return -1,-1
             else:
-                # TODO: Unexpected stop character (only expected a reply)
-                pass
+                # Unexpected stop character (only expected a reply)
+                return -1,-1
         return worker_counts, queue_sizes
 
     async def sendTasksToLieutenant(self, lieutenant_id, task_def_pack, args_pack):
@@ -67,13 +67,13 @@ class Commander:
                         results = unpack(value)
                     else:
                         # TODO: Unexpected parameter
-                        pass
+                        results = None
             else:
-                # TODO: Unexpected token (only expected TASKSET_TOKEN)
-                pass
+                # Unexpected token (only expected TASKSET_TOKEN)
+                results = None
         else:
-            # TODO: Unexpected stop character (only expected a reply)
-            pass
+            # Unexpected stop character (only expected a reply)
+            results = None
         return results
 
     async def distributeTasksets(self, task_def_pack, args):
