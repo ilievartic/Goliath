@@ -158,6 +158,7 @@ class Lieutenant:
 
     async def commanderCallback(self, reader, writer):
         """Determine what to do when a commander connects to this lieutenant."""
+        print('callback')
         # Add data for this new client (after choosing a new client ID)
         client_id = len(self.clients)
         self.results[client_id] = []
@@ -294,7 +295,7 @@ class Lieutenant:
         
         worker.stdout = subprocess.DEVNULL
         worker.stderr = subprocess.DEVNULL
-        worker.send_signal(signal.SIGKILL)
+        worker.send_signal(signal.SIGTERM)
         self.num_workers -= 1
 
     async def startWorkers(self):

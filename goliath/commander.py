@@ -122,7 +122,7 @@ class Commander:
             await writer.drain()
             writer.close()
             await writer.wait_closed()
-            self.lieutenants = None
+        self.lieutenants = None
         return [item[1] for item in actual_results] if results else []
         
     def run(self, function, args, filenames):

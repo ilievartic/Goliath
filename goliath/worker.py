@@ -69,7 +69,8 @@ class Worker:
 
     async def taskExecutionLoop(self):
         while True:
-            var_input = (await self.reader.readline()).decode('utf-8').strip()
+            var_input = await readlineInfinite(self.reader)
+            # var_input = (await self.reader.readline()).decode('utf-8').strip()
             if var_input is None or var_input == '':
                 await self.conditional.acquire()
                 await self.conditional.wait()
