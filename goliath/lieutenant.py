@@ -355,7 +355,7 @@ class Lieutenant:
         asyncio.create_task(self.responseLoop())
 
         # Start listening for commander requests
-        server = await asyncio.start_server(self.commanderCallback, self.hostname, self.port, start_serving=False, limit=((2**30) * 20))
+        server = await asyncio.start_server(self.commanderCallback, self.hostname, self.port, start_serving=False)
 
 
         async with server:

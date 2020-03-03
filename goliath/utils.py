@@ -59,15 +59,23 @@ def parseMessage(message):
     """Parses a message into a list of words."""
     return message.split(' ')
 
-async def readlineInfinite(reader):
+async def readlineInfinite(reader, do_print=False, name=""):
     buffer = b''
     while not reader.at_eof():
         try:
+            if (do_print):
+                print(name + ' readline')
             bytearr = await reader.readuntil(b'\n')
             buffer += bytearr
+            if (do_print):
+                print(name + ' ' + str(len(bytearr)))
             return buffer.decode('utf-8').strip() if len(buffer) else None
         except asyncio.exceptions.LimitOverrunError:
-            bytearr = await reader.readexactly(2**16 - 2**4)
+            if (do_print):
+                print(name + ' readexactly')
+            bytearr = await reader.readexactly(1024*64)
+            if (do_print):
+                print(name + ' ' + str(len(bytearr)))
             buffer += bytearr
 
     return buffer.decode('utf-8').strip() if len(buffer) else None
